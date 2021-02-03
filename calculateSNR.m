@@ -1,3 +1,5 @@
+function opt = calculateSNR(opt)
+
 % calculates SNR on functional data using the function calcSNRmv6()
 
 % RnB lab 2020 SNR analysis script adapted from
@@ -13,19 +15,13 @@ clc;
 cd(fileparts(mfilename('fullpath')));
 
 addpath(fullfile(fileparts(mfilename('fullpath')), '..'));
+% spm fmri
 warning('off');
 addpath(genpath('/Users/battal/Documents/MATLAB/spm12'));
-% spm fmri
 
-% set and check dependencies (lib)
-initEnv();
-checkDependencies();
 
 % get option for parameters
 opt = getOptionPitchFT();
-
-% subID = opt.subjects{1};
-% opt.session = {'001'};
 
 opt.anatMask = 0;
 opt.FWHM = 3; % 3 or 6mm smoothing
@@ -33,14 +29,13 @@ opt.FWHM = 3; % 3 or 6mm smoothing
 % we let SPM figure out what is in this BIDS data set
 opt = getSpecificBoldFiles(opt);
 
-% add or count tot run number
-allRunFiles = opt.allFiles;
-
 % use a predefined mask, only calculate voxels within the mask
 maskFileName = opt.anatMaskFileName;
+
 if ~opt.anatMask == 1
   maskFileName = makeFuncIndivMask(opt);
 end
+
 maskFile = spm_vol(maskFileName);
 mask = spm_read_vols(maskFile);
 
@@ -63,6 +58,9 @@ endDelay = 4;
 
 % use neighbouring 4 bins as noise frequencies
 cfg.binSize = 4;
+
+% add or count tot run number
+allRunFiles = opt.allFiles;
 
 RunPattern = struct();
 nVox = sum(mask(:) == 1);
@@ -237,6 +235,8 @@ new_nii.hdr.dime.dim(2:5) = [dims(1) dims(2) dims(3) 1];
 FileName = fullfile(opt.destinationDir, ['AvgSNR_', boldFileName, ext]);
 
 save_nii(new_nii, FileName);
+
+end
 
 function opt = getSpecificBoldFiles(opt)
 
