@@ -16,36 +16,20 @@ function mask = makeFuncIndivMask(opt)
   % the output name for FSL BET image (skull stripped)
   betImageName = ['bet05_', imageName, ext];
 
-  %%%%%% SPM skull stripping - with Anat atm
-
-  matlabbatch = setBatchSelectAnat(matlabbatch, BIDS, opt, subID);
-  opt.orderBatches.selectAnat = 1;
-
-  % dependency from file selector ('Anatomical')
-  matlabbatch = [];
-  matlabbatch = setBatchSegmentation(matlabbatch, opt);
+  %SPM skull stripping - with Anat atm
+  [~, opt, BIDS] = getData(opt);
+  
   opt.orderBatches.segment = 1;
   opt.orderBatches.skullStripping = 2;
+  
+  % make matlab batch for segment and skullstip
+  matlabbatch = [];
+  matlabbatch = setBatchSegmentation(matlabbatch, opt, opt.funcMaskFileName);
 
-  matlabbatch = setBatchSkullStripping(matlabbatch, BIDS, subID, opt);
+  matlabbatch = setBatchSkullStripping(matlabbatch, BIDS, opt, subID);
+  % run spm
+  saveAndRunWorkflow(matlabbatch, 'meanImage_segment_skullstrip', opt, subID);
 
-  saveAndRunWorkflow(matlabbatch, 'segment_skullstrip', opt, subID);
-
-  %%%%%
-
-  %%%%%
-  % FSL BET
-  setenv('FSLOUTPUTTYPE', 'NIFTI');
-  BET = sprintf('%s %s %s%s', 'bet ', imageName, betImageName, options);
-  fprintf('\n%s %s', 'Running brain extraction for: ', fname);
-  BETerror = unix(BET);
-
-  if BETerror
-    fprintf('%s\n', '  ERROR!!!!');
-  else
-    fprintf('%s\n', '  OK!!!');
-  end
-  %%%%%
 
   % STEP 1.2
   % read already created bet05 image
