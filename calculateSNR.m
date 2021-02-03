@@ -7,7 +7,7 @@ function opt = calculateSNR(opt)
 
 % dependent of CPP-BIDS and CPP-SPM and SPM functions
 
-% let's start
+%% let's start
 % we let SPM figure out what is in this BIDS data set
 opt = getSpecificBoldFiles(opt);
 
@@ -24,8 +24,12 @@ mask = spm_read_vols(maskFile);
 %% setup parameters for FFT analysis
 % mri.repetition time(TR) and repetition of steps/categA
 repetitionTime = 1.75;
-opt.stepSize = 4;
 stepDuration = 36.48;
+
+% only in block design, we also check for stepSize =2
+if opt.stepSize == 2
+  stepDuration = 18.24;
+end
 
 % setup output directory
 opt.destinationDir = createOutputDirectory(opt);
@@ -44,7 +48,6 @@ cfg.binSize = 4;
 % add or count tot run number
 allRunFiles = opt.allFiles;
 
-RunPattern = struct();
 nVox = sum(mask(:) == 1);
 nRuns = length(allRunFiles);
 newN = 104;
@@ -52,7 +55,7 @@ newN = 104;
 allRunsRaw = nan(newN, nVox, nRuns);
 allRunsDT = nan(newN, nVox, nRuns);
 
-%% Calculate SNR for each run
+% loop through runs
 for iRun = 1:nRuns
 
   fprintf('Read in file ... \n');
@@ -61,7 +64,7 @@ for iRun = 1:nRuns
   boldFile = allRunFiles{iRun};
 
   % get file name to-be saved
-  [boldFileDir, boldFileName, ext] = fileparts(boldFile);
+  [~, boldFileName, ext] = fileparts(boldFile);
 
   % read/load bold file
   boldFile = spm_vol(boldFile);
@@ -173,6 +176,7 @@ for iRun = 1:nRuns
 
   % get mask index
   maskIndex = find(mask_new.img == 1);
+  
   % assign z-scores from 1-D to their correcponding 3-D location
   zmap3Dmask(maskIndex) = zmapmasked;
 
@@ -186,17 +190,14 @@ for iRun = 1:nRuns
 
   % save the results
   FileName = fullfile(opt.destinationDir, ['SNR_', boldFileName, ext]);
-
   save_nii(new_nii, FileName);
 
 end
 
-%% Calculate SNR for the averaged time course of the two runs
+% Calculate SNR for the averaged time course of the all runs
 avgPattern = mean(allRunsDT, 3);
 avgrawPattern = mean(allRunsRaw, 3);
 
-% avgPattern=(RunPattern(1).pattern+RunPattern(2).pattern)/2;
-% avgrawPattern=(RunPattern(1).rawpattern+RunPattern(2).rawpattern)/2;
 
 % SNR Calculation
 fprintf('Calculating average... \n');
@@ -214,104 +215,12 @@ new_nii = make_nii(zmap3Dmask);
 new_nii.hdr = mask_new.hdr;
 new_nii.hdr.dime.dim(2:5) = [dims(1) dims(2) dims(3) 1];
 
+% set save filename and save results as .nii
 FileName = fullfile(opt.destinationDir, ['AvgSNR_', boldFileName, ext]);
-
 save_nii(new_nii, FileName);
 
 end
 
-function opt = getSpecificBoldFiles(opt)
 
-  % we let SPM figure out what is in this BIDS data set
-  [~, opt, BIDS] = getData(opt);
 
-  subID = opt.subjects(1);
 
-  %% Get functional files for FFT
-  % identify sessions for this subject
-  [sessions, nbSessions] = getInfo(BIDS, subID, opt, 'Sessions');
-
-  % get prefix for smoothed image
-  [prefix, ~] = getPrefix('ffx', opt, opt.FWHM);
-
-  allFiles = [];
-  sesCounter = 1;
-
-  for iSes = 1:nbSessions        % For each session
-
-    % get all runs for that subject across all sessions
-    [runs, nbRuns] = getInfo(BIDS, subID, opt, 'Runs', sessions{iSes});
-
-    for iRun = 1:nbRuns
-
-      % get the filename for this bold run for this task
-      [fileName, subFuncDataDir] = getBoldFilename( ...
-                                                   BIDS, ...
-                                                   subID, sessions{iSes}, ...
-                                                   runs{iRun}, opt);
-
-      % check that the file with the right prefix exist
-      files = validationInputFile(subFuncDataDir, fileName, prefix);
-
-      % add the files to list
-      allFilesTemp = cellstr(files);
-      allFiles = [allFiles; allFilesTemp]; %#ok<AGROW>
-      sesCounter = sesCounter + 1;
-
-    end
-  end
-
-  opt.allFiles = allFiles;
-
-  %% get the masks for FFT
-
-  % get mean image
-  [meanImage, meanFuncDir] = getMeanFuncFilename(BIDS, subID, opt);
-  meanFuncFileName = fullfile(meanFuncDir, meanImage);
-
-  % normalized image option by adding prefix w-
-  if strcmp(opt.space, 'MNI')
-    meanFuncFileName = fullfile(meanFuncDir, ['w', meanImage]);
-  end
-
-  % think about it again % % % %
-  % instead of segmented meanfunc image here
-  % get native-spaced resliced anat (cpp-spm pipeline) image:
-  [~, meanImageName, ext] = fileparts(meanImage);
-  anatMaskFileName = fullfile(meanFuncDir, ...
-                              [meanImageName, '_mask', ext]);
-
-  opt.anatMaskFileName = anatMaskFileName;
-  opt.funcMaskFileName = meanFuncFileName;
-
-  % save prefix
-  opt.prefix = prefix;
-
-end
-
-function destinationDir = createOutputDirectory(opt)
-
-  subjectDestDir = fullfile(opt.derivativesDir, '..', 'FFT_RnB_funcmask');
-  if opt.anatMask
-    subjectDestDir = fullfile(opt.derivativesDir, '..', 'FFT_RnB_anatmask');
-  end
-
-  subject = ['sub-', opt.subjects{1}];
-  session = ['ses-', opt.session{1}];
-  stepFolder = ['step', num2str(opt.stepSize)];
-  dirsToMake = {subject, session, stepFolder};
-
-  % create subject folder witn subfolders if doesn't exist
-  if ~exist(fullfile(subjectDestDir, subject, session, stepFolder), 'dir')
-    for idir = 1:length(dirsToMake)
-      Thisdir = fullfile(subjectDestDir, dirsToMake{1:idir});
-      if ~exist(Thisdir)
-        mkdir(Thisdir);
-      end
-    end
-  end
-
-  % output the results
-  destinationDir =  fullfile(subjectDestDir, subject, session, stepFolder);
-
-end
