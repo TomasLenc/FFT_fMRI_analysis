@@ -1,3 +1,5 @@
+% (C) Copyright 2020 RnB FFT-analysis developers
+
 function [targetSNR, cfg] = calculateFourier(X, Xraw, cfg)
   % Fourier analysis of fMRI time series data, returns the SNR at a given
   %        frequency for each voxel

@@ -1,3 +1,5 @@
+% (C) Copyright 2020 RnB FFT-analysis developers
+
 function mask = makeFuncIndivMask(opt)
 
   % function uses a mean functional image to create individual space mask

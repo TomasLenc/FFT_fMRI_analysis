@@ -1,3 +1,5 @@
+% (C) Copyright 2020 RnB FFT-analysis developers
+
 function destinationDir = createOutputDirectory(opt)
 % sets a destination directory for FFT analysis results
 

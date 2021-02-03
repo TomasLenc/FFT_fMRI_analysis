@@ -1,3 +1,5 @@
+% (C) Copyright 2020 RnB FFT-analysis developers
+
 function opt = getSpecificBoldFiles(opt)
 % gets the specificed bold files for the FFT analysis
 % dependend on cpp-spm and bids-matlab functions. 
