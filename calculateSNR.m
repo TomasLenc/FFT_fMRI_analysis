@@ -1,31 +1,13 @@
+% (C) Copyright 2020 RnB FFT-analysis developers
+
 function opt = calculateSNR(opt)
-
 % calculates SNR on functional data using the function calcSNRmv6()
-
-% RnB lab 2020 SNR analysis script adapted from
+% adapted from
 % Xiaoqing Gao, Feb 27, 2020, Hangzhou xiaoqinggao@zju.edu.cn
 
-% note: if we keep .mat files, in source folder, we can load them here to extract some
-% parameters
+% dependent of CPP-BIDS and CPP-SPM and SPM functions
 
-clear;
-clc;
-
-%% set the paths & subject info
-cd(fileparts(mfilename('fullpath')));
-
-addpath(fullfile(fileparts(mfilename('fullpath')), '..'));
-% spm fmri
-warning('off');
-addpath(genpath('/Users/battal/Documents/MATLAB/spm12'));
-
-
-% get option for parameters
-opt = getOptionPitchFT();
-
-opt.anatMask = 0;
-opt.FWHM = 3; % 3 or 6mm smoothing
-
+% let's start
 % we let SPM figure out what is in this BIDS data set
 opt = getSpecificBoldFiles(opt);
 
