@@ -21,6 +21,7 @@ function mask = makeFuncIndivMask(opt)
   
   opt.orderBatches.segment = 1;
   opt.orderBatches.skullStripping = 2;
+  opt.skullStripMeanImg = 1; % skull strip the mean image
   
   % make matlab batch for segment and skullstip
   matlabbatch = [];
