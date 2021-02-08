@@ -52,10 +52,10 @@ function opt = getSpecificBoldFiles(opt)
   [meanImage, meanFuncDir] = getMeanFuncFilename(BIDS, subID, opt);
   meanFuncFileName = fullfile(meanFuncDir, meanImage);
 
-  % normalized image option by adding prefix w-
-  if strcmp(opt.space, 'MNI')
-    meanFuncFileName = fullfile(meanFuncDir, ['w', meanImage]);
-  end
+%   % normalized image option by adding prefix w-
+%   if strcmp(opt.space, 'MNI')
+%     meanFuncFileName = fullfile(meanFuncDir, ['w', meanImage]);
+%   end
 
   % think about it again % % % %
   % instead of segmented meanfunc image here
