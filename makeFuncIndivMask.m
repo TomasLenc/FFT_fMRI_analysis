@@ -51,43 +51,26 @@ function mask = makeFuncIndivMask(opt)
 
   % create mask name
   [meanImage, meanFuncDir] = getMeanFuncFilename(BIDS, subID, opt);
-      
-%       % atm getMeanFunc only gets the native space mean func
-%       % adding the option to also get the mean MNI image
-%       if strcmp(opt.space, 'MNI')
-%         meanImage = ['w', meanImage];
-%       end
-  
-      %name the output accordingto the input image
-      output = ['m' strrep(meanImage, '.nii', '_skullstripped.nii')];
-      maskOutput = ['m' strrep(meanImage, '.nii', '_mask.nii')];
-      
-      
-      
-      
-      
-  maskFileName = ['mask', betImageName];
-  mask = fullfile(imagePath, maskFileName);
-
-  % STEP 2
-  if ~exist(mask)
-    % Create a template & load the mask
-    % A = load_untouch_nii('bet_05_meanuasub-pil001-PitchFT_run-001.nii');
-    A = load_untouch_nii(betImage);
-
-    C = A;
-    C.fileprefix = 'C';
-    C.img = [];
-
-    idx = find(A.img > 0);
-    A.img(idx) = 1;
-    C.img = A.img;
-    save_untouch_nii(C, mask);
-  end
-
-end
-
-% function useBetFsl
-%
-%
+  %name the output accordingto the input image
+  maskFileName = ['m' strrep(meanImage, '.nii', '_mask.nii')];
+  mask = fullfile(meanFuncDir, maskFileName);
+% 
+%   % STEP 2
+%   if ~exist(mask)
+%     % Create a template & load the mask
+%     % A = load_untouch_nii('bet_05_meanuasub-pil001-PitchFT_run-001.nii');
+%     A = load_untouch_nii(maskFileName);
+% 
+%     C = A;
+%     C.fileprefix = 'C';
+%     C.img = [];
+% 
+%     idx = find(A.img > 0);
+%     A.img(idx) = 1;
+%     C.img = A.img;
+%     save_untouch_nii(C, mask);
+%   end
+% 
 % end
+
+
