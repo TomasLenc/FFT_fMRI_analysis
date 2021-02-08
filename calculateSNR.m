@@ -21,6 +21,7 @@ end
 maskFile = spm_vol(maskFileName);
 mask = spm_read_vols(maskFile);
 
+
 %% setup parameters for FFT analysis
 % mri.repetition time(TR) and repetition of steps/categA
 repetitionTime = 1.75;
@@ -48,7 +49,7 @@ cfg.binSize = 4;
 % add or count tot run number
 allRunFiles = opt.allFiles;
 
-nVox = sum(mask(:) == 1);
+nVox = sum(mask(:) > 0);
 nRuns = length(allRunFiles);
 newN = 104;
 
