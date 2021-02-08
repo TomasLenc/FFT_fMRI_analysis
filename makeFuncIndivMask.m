@@ -14,10 +14,11 @@ function mask = makeFuncIndivMask(opt)
   [imagePath, imageName, ext] = fileparts(image);
 
   % the output name for FSL BET image (skull stripped)
-  betImageName = ['bet05_', imageName, ext];
+  % betImageName = ['bet05_', imageName, ext];
 
   %SPM skull stripping - with Anat atm
   [~, opt, BIDS] = getData(opt);
+    subID = opt.subjects{1};
   
   opt.orderBatches.segment = 1;
   opt.orderBatches.skullStripping = 2;
@@ -35,20 +36,36 @@ function mask = makeFuncIndivMask(opt)
   % STEP 1.2
   % read already created bet05 image
 
-  betImage = fullfile(imagePath, betImageName);
+ % betImage = fullfile(imagePath, betImageName);
 
-  % STEP 1.3
-  % copy created bet05_meanfunc_mask images & rename with taskname
-  if ~exist(betImage)
-
-    rhythmBlockFuncDir = strrep(imagePath, opt.taskName, 'RhythmBlock');
-    betOrigImage = strrep(fullfile(rhythmBlockFuncDir, betImageName), ...
-                          opt.taskName, 'RhythmBlock');
-    copyfile(betOrigImage, betImage);
-
-  end
+%   % STEP 1.3
+%   % copy created bet05_meanfunc_mask images & rename with taskname
+%   if ~exist(betImage)
+% 
+%     rhythmBlockFuncDir = strrep(imagePath, opt.taskName, 'RhythmBlock');
+%     betOrigImage = strrep(fullfile(rhythmBlockFuncDir, betImageName), ...
+%                           opt.taskName, 'RhythmBlock');
+%     copyfile(betOrigImage, betImage);
+% 
+%   end
 
   % create mask name
+  [meanImage, meanFuncDir] = getMeanFuncFilename(BIDS, subID, opt);
+      
+%       % atm getMeanFunc only gets the native space mean func
+%       % adding the option to also get the mean MNI image
+%       if strcmp(opt.space, 'MNI')
+%         meanImage = ['w', meanImage];
+%       end
+  
+      %name the output accordingto the input image
+      output = ['m' strrep(meanImage, '.nii', '_skullstripped.nii')];
+      maskOutput = ['m' strrep(meanImage, '.nii', '_mask.nii')];
+      
+      
+      
+      
+      
   maskFileName = ['mask', betImageName];
   mask = fullfile(imagePath, maskFileName);
 
