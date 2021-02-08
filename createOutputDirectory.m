@@ -9,7 +9,7 @@ function destinationDir = createOutputDirectory(opt)
   end
 
   subject = ['sub-', opt.subjects{1}];
-  session = ['ses-', opt.session{1}];
+  session = 'ses-001';
   stepFolder = ['step', num2str(opt.stepSize)];
   dirsToMake = {subject, session, stepFolder};
 
