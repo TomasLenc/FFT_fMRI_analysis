@@ -4,19 +4,21 @@ function mask = makeFuncIndivMask(opt)
 
     % function cpp-spm repo/functions and create skull stripped
     % mean functional image
-
-    % the mask
+    
+    % read the dataset
+    [~, opt, BIDS] = getData(opt);
+    subID = opt.subjects{1};
+    
+    % call/create the mask name
     [meanImage, meanFuncDir] = getMeanFuncFilename(BIDS, subID, opt);
     % name the output accordingto the input image
     maskFileName = ['m' strrep(meanImage, '.nii', '_mask.nii')];
     mask = fullfile(meanFuncDir, maskFileName);
 
     % ask if mask exist, if not create it:
-    if ~exist(mask)
-        % SPM skull stripping - with Anat atm
-        [~, opt, BIDS] = getData(opt);
-        subID = opt.subjects{1};
-
+    if ~exist(mask,file)
+        
+        % set batch order since there is dependencies
         opt.orderBatches.segment = 1;
         opt.orderBatches.skullStripping = 2;
 
