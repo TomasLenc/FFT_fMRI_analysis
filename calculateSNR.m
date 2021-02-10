@@ -78,7 +78,7 @@ for iRun = 1:nRuns
   sequenceVol = totalVol - onsetDelay - endDelay;
 
   % remove the first 4 volumes, using this step to make the face stimulus onset at 0
-  Pattern = signal(mask == 1, (onsetDelay + 1):(sequenceVol + onsetDelay));
+  Pattern = signal(mask > 0, (onsetDelay + 1):(sequenceVol + onsetDelay));
 
   Pattern = Pattern';
 
@@ -176,7 +176,7 @@ for iRun = 1:nRuns
   zmap3Dmask = zeros(size(mask_new.img));
 
   % get mask index
-  maskIndex = find(mask_new.img == 1);
+  maskIndex = find(mask_new.img > 0);
   
   % assign z-scores from 1-D to their correcponding 3-D location
   zmap3Dmask(maskIndex) = zmapmasked;
