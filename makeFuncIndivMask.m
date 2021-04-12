@@ -11,6 +11,7 @@ function mask = makeFuncIndivMask(opt)
     
     % call/create the mask name
     [meanImage, meanFuncDir] = getMeanFuncFilename(BIDS, subID, opt);
+    
     % name the output accordingto the input image
     maskFileName = ['m' strrep(meanImage, '.nii', '_mask.nii')];
     mask = fullfile(meanFuncDir, maskFileName);
