@@ -1,6 +1,6 @@
 % (C) Copyright 2020 RnB FFT-analysis developers
 
-function [targetSNR, cfg] = calculateFourier(X, Xraw, cfg)
+function [targetSNR, cfg, FT] = calculateFourier(X, Xraw, cfg)
   % Fourier analysis of fMRI time series data, returns the SNR at a given
   %        frequency for each voxel
   %
@@ -42,6 +42,7 @@ function [targetSNR, cfg] = calculateFourier(X, Xraw, cfg)
   % 1. FFT of the time series
 
   targetFrequency = cfg.targetFrequency;
+  gap = cfg.gap;
   binSize = cfg.binSize;
   thresh = cfg.thresh;
   histBin = cfg.histBin;
@@ -52,7 +53,6 @@ function [targetSNR, cfg] = calculateFourier(X, Xraw, cfg)
 
   % 2. define noise frequencies based on TargetFrequency and BinSize with a
   % gap of 1
-  gap = 1;
   noiseFs = [(targetFrequency - binSize / 2 - gap): ...
              (targetFrequency - 1 - gap) (targetFrequency + 1 + gap): ...
              (targetFrequency + binSize / 2 + gap)];
