@@ -56,7 +56,7 @@ function opt = getSpecificBoldFiles(opt)
     %     meanFuncFileName = fullfile(meanFuncDir, ['w', meanImage]);
     %   end
 
-    % think about it again % % % %
+    % think about it again % % % % in the future
     % instead of segmented meanfunc image here
     % get native-spaced resliced anat (cpp-spm pipeline) image:
     [~, meanImageName, ext] = fileparts(meanImage);
