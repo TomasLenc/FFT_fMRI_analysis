@@ -38,6 +38,7 @@ function opt = calculateSNR(opt)
     allRunFiles = opt.allFiles;
 
     % use a predefined mask, only calculate voxels within the mask
+    % below is same resolution as the functional images
     maskFileName = opt.anatMaskFileName;
 
     if ~opt.anatMask == 1
@@ -56,9 +57,6 @@ function opt = calculateSNR(opt)
     segmentDuration     = 4 * patternDuration;
     stepDuration        = opt.nStepsPerPeriod * segmentDuration;
 
-    % setup output directory
-    opt.destinationDir = createOutputDirectory(opt);
-
     % Number of vol before/after the rhythmic sequence (exp) are presented
     onsetDelay = 2;
     endDelay = 4;
@@ -68,8 +66,8 @@ function opt = calculateSNR(opt)
     cfg.gap = 1;
 
     % set voxel and run numbers
-    RunPattern = struct();
-    nVox = sum(mask(:) == 1);
+    %RunPattern = struct();
+    nVox = sum(mask(:) > 0);
     nRuns = length(allRunFiles);
 
     % number of samples (round to smallest even number)

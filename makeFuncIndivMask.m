@@ -16,13 +16,13 @@ function mask = makeFuncIndivMask(opt)
     mask = fullfile(meanFuncDir, maskFileName);
 
     % ask if mask exist, if not create it:
-    if ~exist(mask,file)
+    if ~exist(mask,'file')
         
         % set batch order since there is dependencies
         opt.orderBatches.segment = 1;
         opt.orderBatches.skullStripping = 2;
 
-        % skull strip the mean image
+        % opt for running skull strip on the mean image
         opt.skullStripMeanImg = 1;
 
         % make matlab batch for segment and skullstip
