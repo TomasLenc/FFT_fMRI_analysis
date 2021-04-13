@@ -5,13 +5,14 @@ function opt = getSpecificBoldFiles(opt)
     % dependend on cpp-spm and bids-matlab functions.
 
     % we let SPM figure out what is in this BIDS data set
-    [~, opt, BIDS] = getData(opt);
+    [BIDS, opt] = getData(opt);
 
-    subID = opt.subjects(1);
+    % think about changing hardcore coding of subject{1} ! ! !
+    subLabel = opt.subjects{1};
 
     %% Get functional files for FFT
     % identify sessions for this subject
-    [sessions, nbSessions] = getInfo(BIDS, subID, opt, 'Sessions');
+    [sessions, nbSessions] = getInfo(BIDS, subLabel, opt, 'Sessions');
 
     % get prefix for smoothed image
     [prefix, ~] = getPrefix('ffx', opt, opt.FWHM);
@@ -22,14 +23,14 @@ function opt = getSpecificBoldFiles(opt)
     for iSes = 1:nbSessions        % For each session
 
         % get all runs for that subject across all sessions
-        [runs, nbRuns] = getInfo(BIDS, subID, opt, 'Runs', sessions{iSes});
+        [runs, nbRuns] = getInfo(BIDS, subLabel, opt, 'Runs', sessions{iSes});
 
         for iRun = 1:nbRuns
 
             % get the filename for this bold run for this task
             [fileName, subFuncDataDir] = getBoldFilename( ...
                                                          BIDS, ...
-                                                         subID, sessions{iSes}, ...
+                                                         subLabel, sessions{iSes}, ...
                                                          runs{iRun}, opt);
 
             % check that the file with the right prefix exist
@@ -48,7 +49,7 @@ function opt = getSpecificBoldFiles(opt)
     %% get the masks for FFT
 
     % get mean image
-    [meanImage, meanFuncDir] = getMeanFuncFilename(BIDS, subID, opt);
+    [meanImage, meanFuncDir] = getMeanFuncFilename(BIDS, subLabel, opt);
     meanFuncFileName = fullfile(meanFuncDir, meanImage);
 
     %   % normalized image option by adding prefix w-
