@@ -8,8 +8,10 @@ function opt = calculateSNR(opt)
     %% set up experiment related info
 
     % number of steps per analysed period
+    % Set default for RhythmFT and PitchFT analyses
     opt.nStepsPerPeriod = 4;
-
+    opt.whichHarmonics = [1, 2];
+    
     % select which harmonics to take into account (always include 1st)
     % !!! careful: when we have slower frequency (4 steps per period),
     % don't select even harmonics in teh Block design. They overlap with
@@ -23,15 +25,14 @@ function opt = calculateSNR(opt)
         elseif opt.nStepsPerPeriod == 4
             opt.whichHarmonics = [1, 3];
         end
-    else
-        strcmpi(opt.taskName, 'RhythmFT');
-        if opt.nStepsPerPeriod == 4
-            opt.whichHarmonics = [1, 2];
-        end
     end
 
     % setup output directory
-    destinationDir = createOutputDirectory(opt);
+    subLabel = opt.subjects{1};
+    destinationDir = createOutputDirectory(opt, subLabel);
+    
+    % want to save each run FFT results
+    saveEachRun = 1;
     
     %% let's start
     
@@ -113,14 +114,14 @@ function opt = calculateSNR(opt)
     order   = round(7 * oldFs / fcutoff);
     shape   = [1 1 0 0];
     frex    = [0, fcutoff, fcutoff + fcutoff * transw, oldFs / 2] / (oldFs / 2);
-    hz      = linspace(0, oldFs / 2, floor(oldN / 2) + 1);
+%     hz      = linspace(0, oldFs / 2, floor(oldN / 2) + 1);
 
     % get filter kernel
     filtkern = firls(order, frex, shape);
 
-    % get kernel power spectrum
-    filtkernX = abs(fft(filtkern, oldN)).^2;
-    filtkernXdb = 10 * log10(abs(fft(filtkern, oldN)).^2);
+%     % get kernel power spectrum
+%     filtkernX = abs(fft(filtkern, oldN)).^2;
+%     filtkernXdb = 10 * log10(abs(fft(filtkern, oldN)).^2);
 
     % % plot filter properties (visual check)
     % figure
@@ -160,7 +161,7 @@ function opt = calculateSNR(opt)
 
         % choose current BOLD file
         boldFile = allRunFiles{iRun};
-        [~,boldFileName, ext] = fileparts(boldFile);
+        [~,boldFileName,~] = fileparts(boldFile);
         
         % read/load bold file
         boldHdr = spm_vol(boldFile);
@@ -215,61 +216,61 @@ function opt = calculateSNR(opt)
         allRunsRaw(:, :, iRun) = boldResampled;
         allRunsDT(:, :, iRun) = boldDetrend;
 
-        fprintf('Saving ... \n');
-
-        % create template hdr to be saved
-        zmapHdr = maskHdr;
-        zmapnewName = fullfile(destinationDir, ...
-                               ['SNR_', boldFileName, ext]);
-        %zmapHdr.fname =  zmapnewName;
-        zmapHdr.fname = spm_file(zmapHdr.fname,'filename',zmapnewName);
+        % save the output
+        if saveEachRun == 1
+            fprintf('Saving each run output... \n');
         
-        % % % 
-        
-        % use spm_file with another option than "filename" to change the
-        % saving path. at the moment it still saves into :
-        % '/Users/battal/Cerens_files/fMRI/Processed/RhythmCateg/PitchFT/derivatives/cpp_spm/SNR_s3wuasub-011_ses-001_task-PitchFT_run-001_bold.nii'
-        % fpath did not work
-        
-        % % %
-        % get dimensions & allocate 3-D img
-        zmapImg = zeros(zmapHdr.dim);
-
-        % get mask index for non-zero values &
-        % assign z-scores from 1-D to their correcponding 3-D location
-        zmapImg(find(maskImg > 0)) = targetZ; %#ok<FNDSB>
-
-        % save result as .nii file
-        spm_write_vol(zmapHdr, zmapImg);
-
+            newFileName = ['SNR_', boldFileName, '.nii'];
+            writeMap(targetZ, maskHdr, maskImg, newFileName, destinationDir);
+%             % create template hdr to be saved
+%             zmapHdr = maskHdr;
+%             zmapnewName = ['SNR_', boldFileName, '.nii'];
+%             zmapHdr.fname = spm_file(zmapHdr.fname,'path',destinationDir);
+%             zmapHdr.fname = spm_file(zmapHdr.fname,'filename',zmapnewName);
+% 
+%             % get dimensions & allocate 3-D img
+%             zmapImg = zeros(zmapHdr.dim);
+% 
+%             % get mask index for non-zero values &
+%             % assign z-scores from 1-D to their correcponding 3-D location
+%             zmapImg(find(maskImg > 0)) = targetZ; %#ok<FNDSB>
+% 
+%             % save result as .nii file
+%             spm_write_vol(zmapHdr, zmapImg);
+        end
     end
 
     %% Calculate SNR for the averaged time course of the all runs
     fprintf('Calculating average... \n');
 
+    % rename the file name for saving
+    boldFileName = regexprep(boldFileName, 'run-(\d*)_','');
+    
     % average runs in the time domain
-    avgPattern = mean(allRunsDT, 3);
-    avgrawPattern = mean(allRunsRaw, 3);
+    avgBold = mean(allRunsDT, 3);
+    avgRawBold = mean(allRunsRaw, 3);
 
     % ----------------------------------------------------------------
     % zscore at target frequency
-
+    % run FFT on average bold
+    [AvrZTarget, cfg, FT] = calculateFourier(avgBold, avgRawBold, cfg);
+    
     blfun = @(x, y) x - y;
-    [targetZ, cfg, FT] = calculateFourier(avgPattern, avgrawPattern, cfg);
     mXSNRAmp = baselineCorrect(abs(FT), cfg, 'fun', blfun);
 
+    % save map as nii
+    newFileName = ['AvgZTarget_', boldFileName, '.nii'];
+    writeMap(AvrZTarget, maskHdr, maskImg, newFileName, destinationDir);
+            
+            
     % plot best voxels
-    f = plotmXBestVox(freq, mXSNRAmp, targetZ, 10, cfg.idxHarmonics);
+    f = plotmXBestVox(freq, mXSNRAmp, AvrZTarget, 10, cfg.idxHarmonics);
 
     % save figure
-    valueName = 'AvgZTarget-bestVox';
-    fileName = [getOutputFileName(valueName, boldFile, destinationDir), '.fig'];
+    newFileName = 'AvgZTarget-bestVox_';
+    fileName = fullfile(destinationDir, [newFileName, boldFileName, '.fig']);
     saveas(f, fileName);
     close(f);
-
-    % save map as nii
-    valueName = 'AvgZTarget';
-    writeMap(targetZ, maskFileName, valueName, destinationDir);
 
     % ----------------------------------------------------------------
     % zscore at target frequency and harmonics (average amp first)
@@ -285,6 +286,10 @@ function opt = calculateSNR(opt)
     NoiseSD = std(AmpNoise, 0, 1);
     targetHarmonicsZ = (mXavgHarmonics(cfg.binSize + 1, :) - NoiseMean) ./ NoiseSD;
 
+    % save map as nii
+    newFileName = ['AvgZHarmonics_', boldFileName, '.nii'];
+    writeMap(targetHarmonicsZ, maskHdr, maskImg, newFileName, destinationDir);
+    
     % plot best voxels
     [~, idxSorted] = sort(targetHarmonicsZ, 'descend');
     idxSorted(isnan(targetHarmonicsZ(idxSorted))) = [];
@@ -312,21 +317,15 @@ function opt = calculateSNR(opt)
     pnl.marginbottom = 3;
 
     % save figure
-    valueName = 'AvgZHarmonics-bestVoxMean';
-    fileName = [getOutputFileName(valueName, boldFile, destinationDir), '.fig'];
-    saveas(f, fileName);
+    newFileName = ['AvgZHarmonics-bestVoxMean_', boldFileName, '.fig'];
+    saveas(f, fullfile(destinationDir, newFileName));
     close(f);
 
     % plot best voxels and save figure
     f = plotmXBestVox(freq, mXSNRAmp, targetHarmonicsZ, 10, cfg.idxHarmonics);
-    valueName = 'AvgZHarmonics-bestVox';
-    fileName = [getOutputFileName(valueName, boldFile, destinationDir), '.fig'];
-    saveas(f, fileName);
+    newFileName = ['AvgZHarmonics-bestVox_', boldFileName, '.fig'];
+    saveas(f, fullfile(destinationDir, newFileName));
     close(f);
-
-    % save map as nii
-    valueName = 'AvgZHarmonics';
-    writeMap(targetHarmonicsZ, maskFileName, valueName, destinationDir);
 
     % ----------------------------------------------------------------
     % SNR at target frequency as ratio to neighbouring bins
@@ -338,50 +337,38 @@ function opt = calculateSNR(opt)
     f = plotmXBestVox(freq, mXSNRRatio, targetSNRRatio, 10, cfg.idxHarmonics, 'ratio');
 
     % save figure
-    valueName = 'AvgRatioTarget-bestVox';
-    fileName = [getOutputFileName(valueName, boldFile, destinationDir), '.fig'];
-    saveas(f, fileName);
+    newFileName = ['AvgRatioTarget-bestVox_', boldFileName, '.fig'];
+    saveas(f, fullfile(destinationDir, newFileName));
     close(f);
 
     % save map as nii
-    valueName = 'AvgRatioTarget';
-    writeMap(targetSNRRatio, maskFileName, valueName, destinationDir);
+    newFileName = ['AvgRatioTarget_', boldFileName, '.nii'];
+    writeMap(targetSNRRatio, maskHdr, maskImg, newFileName, destinationDir);
+end
+
+function writeMap(data2write, maskHdr, maskImg, newFileName, destinationDir)
+
+    % create template hdr to be saved
+    zmapHdr = maskHdr;
+    zmapnewName = newFileName;
+    zmapHdr.fname = spm_file(zmapHdr.fname,'path',destinationDir);
+    zmapHdr.fname = spm_file(zmapHdr.fname,'filename',zmapnewName);
+
+    % get dimensions & allocate 3-D img
+    zmapImg = zeros(zmapHdr.dim);
+    % get mask index for non-zero values &
+    % assign z-scores from 1-D to their correcponding 3-D location
+    zmapImg(find(maskImg > 0)) = data2write; %#ok<FNDSB>
+
+    % save result as .nii file
+    spm_write_vol(zmapHdr, zmapImg);
 
 end
 
-function writeMap(data2write, maskFileName, valueName, destinationDir)
-
-    % write map of extracted values
-    mask_new = load_untouch_nii(maskFileName);
-
-    maskIndex = find(mask_new.img == 1);
-
-    dims = size(mask_new.img);
-
-    zmapmasked = data2write;
-
-    zmap3Dmask = zeros(size(mask_new.img));
-
-    zmap3Dmask(maskIndex) = zmapmasked;
-
-    new_nii = make_nii(zmap3Dmask);
-
-    new_nii.hdr = mask_new.hdr;
-
-    new_nii.hdr.dime.dim(2:5) = [dims(1) dims(2) dims(3) 1];
-
-    % create a filename
-    fileName = [getOutputFileName(valueName, boldFileName, destinationDir), '.nii'];
-
-    % save output file
-    save_nii(new_nii, fileName);
-
-end
-
-function fileName = getOutputFileName(valueName, boldFileName, destinationDir)
-
-    fileName = fullfile(destinationDir, [valueName, boldFileName]);
-end
+% function fileName = getOutputFileName(prefix, boldFileName, destinationDir)
+% 
+%     fileName = fullfile(destinationDir, [prefix, boldFileName]);
+% end
 
 % % set save filename and save results as .nii
 % FileName = fullfile(opt.destinationDir, ['AvgSNR_', boldFileName, ext]);
