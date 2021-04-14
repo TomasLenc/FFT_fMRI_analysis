@@ -104,8 +104,8 @@ function opt = calculateSNR(opt)
     cfg.thresh = 4;
 
     % preallocate to read all the runs and save
-    allRunsRaw = nan(N, nVox, nRuns);
-    allRunsDT = nan(N, nVox, nRuns);
+    allRunsBoldRaw = nan(N, nVox, nRuns);
+    allRunsBoldDT = nan(N, nVox, nRuns);
 
     %%
     % design low-pass filter (to be 100% sure you prevent aliasing)
@@ -213,8 +213,8 @@ function opt = calculateSNR(opt)
         %     tSNR = cfg.tSNR;
         %     %
 
-        allRunsRaw(:, :, iRun) = boldResampled;
-        allRunsDT(:, :, iRun) = boldDetrend;
+        allRunsBoldRaw(:, :, iRun) = boldResampled;
+        allRunsBoldDT(:, :, iRun) = boldDetrend;
 
         % save the output
         if saveEachRun == 1
@@ -235,8 +235,8 @@ function opt = calculateSNR(opt)
     boldFileName = regexprep(boldFileName, 'run-(\d*)_','');
     
     % average runs in the time domain
-    avgBold = mean(allRunsDT, 3);
-    avgRawBold = mean(allRunsRaw, 3);
+    avgBold = mean(allRunsBoldDT, 3);
+    avgRawBold = mean(allRunsBoldRaw, 3);
 
     % ----------------------------------------------------------------
     % zscore at target frequency
