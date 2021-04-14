@@ -218,25 +218,11 @@ function opt = calculateSNR(opt)
 
         % save the output
         if saveEachRun == 1
+            
             fprintf('Saving each run output... \n');
         
             newFileName = ['SNR_', boldFileName, '.nii'];
             writeMap(targetZ, maskHdr, maskImg, newFileName, destinationDir);
-%             % create template hdr to be saved
-%             zmapHdr = maskHdr;
-%             zmapnewName = ['SNR_', boldFileName, '.nii'];
-%             zmapHdr.fname = spm_file(zmapHdr.fname,'path',destinationDir);
-%             zmapHdr.fname = spm_file(zmapHdr.fname,'filename',zmapnewName);
-% 
-%             % get dimensions & allocate 3-D img
-%             zmapImg = zeros(zmapHdr.dim);
-% 
-%             % get mask index for non-zero values &
-%             % assign z-scores from 1-D to their correcponding 3-D location
-%             zmapImg(find(maskImg > 0)) = targetZ; %#ok<FNDSB>
-% 
-%             % save result as .nii file
-%             spm_write_vol(zmapHdr, zmapImg);
         end
     end
 
@@ -350,9 +336,8 @@ function writeMap(data2write, maskHdr, maskImg, newFileName, destinationDir)
 
     % create template hdr to be saved
     zmapHdr = maskHdr;
-    zmapnewName = newFileName;
     zmapHdr.fname = spm_file(zmapHdr.fname,'path',destinationDir);
-    zmapHdr.fname = spm_file(zmapHdr.fname,'filename',zmapnewName);
+    zmapHdr.fname = spm_file(zmapHdr.fname,'filename',newFileName);
 
     % get dimensions & allocate 3-D img
     zmapImg = zeros(zmapHdr.dim);
@@ -365,11 +350,4 @@ function writeMap(data2write, maskHdr, maskImg, newFileName, destinationDir)
 
 end
 
-% function fileName = getOutputFileName(prefix, boldFileName, destinationDir)
-% 
-%     fileName = fullfile(destinationDir, [prefix, boldFileName]);
-% end
 
-% % set save filename and save results as .nii
-% FileName = fullfile(opt.destinationDir, ['AvgSNR_', boldFileName, ext]);
-% save_nii(new_nii, FileName);
