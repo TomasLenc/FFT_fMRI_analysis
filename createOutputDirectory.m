@@ -8,9 +8,10 @@ function destinationDir = createOutputDirectory(opt)
         subjectDestDir = fullfile(opt.derivativesDir, '..', 'FFT_RnB_anatmask');
     end
 
+    % in the future omit hardcoding of subject - loop through instead
     subject = ['sub-', opt.subjects{1}];
-    session = ['ses-', opt.session{1}];
-    stepFolder = ['step', num2str(opt.stepSize)];
+    session = ['ses-001'];
+    stepFolder = ['step', num2str(opt.nStepsPerPeriod)];
     dirsToMake = {subject, session, stepFolder};
 
     % create subject folder witn subfolders if doesn't exist
