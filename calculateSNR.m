@@ -32,7 +32,7 @@ function opt = calculateSNR(opt)
     destinationDir = createOutputDirectory(opt, subLabel);
     
     % want to save each run FFT results
-    saveEachRun = 0;
+    saveEachRun = 1;
     
     %% let's start
     
@@ -222,7 +222,9 @@ function opt = calculateSNR(opt)
             fprintf('Saving each run output... \n');
         
             newFileName = ['SNR_', boldFileName, '.nii'];
-            writeMap(targetZ, maskHdr, maskImg, newFileName, destinationDir);
+            %writeMap(targetZ, maskHdr, maskImg, newFileName, destinationDir);
+            writeMap(targetZ, maskHdr.fname, newFileName, destinationDir);
+
         end
     end
 
@@ -275,7 +277,8 @@ function opt = calculateSNR(opt)
 
     % save map as nii
     newFileName = ['AvgZHarmonics_', boldFileName, '.nii'];
-    writeMap(targetHarmonicsZ, maskHdr, maskImg, newFileName, destinationDir);
+    %writeMap(targetHarmonicsZ, maskHdr, maskImg, newFileName, destinationDir);
+    writeMap(targetHarmonicsZ, maskHdr.fname, newFileName, destinationDir);
     
     % plot best voxels
     [~, idxSorted] = sort(targetHarmonicsZ, 'descend');
@@ -330,7 +333,9 @@ function opt = calculateSNR(opt)
 
     % save map as nii
     newFileName = ['AvgRatioTarget_', boldFileName, '.nii'];
-    writeMap(targetSNRRatio, maskHdr, maskImg, newFileName, destinationDir);
+    % writeMap(targetSNRRatio, maskHdr, maskImg, newFileName, destinationDir);
+    writeMap(targetSNRRatio, maskHdr.fname, newFileName, destinationDir);
+
 end
 
 % function writeMap(data2write, maskHdr, maskImg, newFileName, destinationDir)
