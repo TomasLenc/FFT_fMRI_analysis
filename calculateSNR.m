@@ -155,7 +155,7 @@ function opt = calculateSNR(opt)
 
     %%
     % loop through runs
-    for iRun = 1:nRuns
+    for iRun = 1:iRuns
 
         fprintf('Read in file ... \n');
 
@@ -361,7 +361,7 @@ function writeMap(data2write, maskFileName, newFileName, destinationDir)
 
     % write map of extracted values 
     mask_new = load_untouch_nii(maskFileName);
-    maskIndex = find(mask_new.img == 1);
+    maskIndex = find(mask_new.img > 0);
     dims = size(mask_new.img);
     zmapmasked = data2write;
     zmap3Dmask = zeros(size(mask_new.img));
