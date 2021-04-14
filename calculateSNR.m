@@ -32,7 +32,7 @@ function opt = calculateSNR(opt)
     destinationDir = createOutputDirectory(opt, subLabel);
     
     % want to save each run FFT results
-    saveEachRun = 1;
+    saveEachRun = 0;
     
     %% let's start
     
@@ -246,7 +246,8 @@ function opt = calculateSNR(opt)
 
     % save map as nii
     newFileName = ['AvgZTarget_', boldFileName, '.nii'];
-    writeMap(AvrZTarget, maskHdr, maskImg, newFileName, destinationDir);
+    %writeMap(AvrZTarget, maskHdr, maskImg, newFileName, destinationDir);
+    writeMap(AvrZTarget, maskHdr.fname, newFileName, destinationDir);
             
             
     % plot best voxels
@@ -332,22 +333,39 @@ function opt = calculateSNR(opt)
     writeMap(targetSNRRatio, maskHdr, maskImg, newFileName, destinationDir);
 end
 
-function writeMap(data2write, maskHdr, maskImg, newFileName, destinationDir)
+% function writeMap(data2write, maskHdr, maskImg, newFileName, destinationDir)
+% 
+%     % create template hdr to be saved
+%     zmapHdr = maskHdr;
+%     zmapHdr.fname = spm_file(zmapHdr.fname,'path',destinationDir);
+%     zmapHdr.fname = spm_file(zmapHdr.fname,'filename',newFileName);
+% 
+%     % get dimensions & allocate 3-D img
+%     zmapImg = zeros(zmapHdr.dim);
+%     % get mask index for non-zero values &
+%     % assign z-scores from 1-D to their correcponding 3-D location
+%     zmapImg(find(maskImg > 0)) = data2write; %#ok<FNDSB>
+% 
+%     % save result as .nii file
+%     spm_write_vol(zmapHdr, zmapImg);
+% 
+% end
 
-    % create template hdr to be saved
-    zmapHdr = maskHdr;
-    zmapHdr.fname = spm_file(zmapHdr.fname,'path',destinationDir);
-    zmapHdr.fname = spm_file(zmapHdr.fname,'filename',newFileName);
+function writeMap(data2write, maskFileName, newFileName, destinationDir)
 
-    % get dimensions & allocate 3-D img
-    zmapImg = zeros(zmapHdr.dim);
-    % get mask index for non-zero values &
-    % assign z-scores from 1-D to their correcponding 3-D location
-    zmapImg(find(maskImg > 0)) = data2write; %#ok<FNDSB>
 
-    % save result as .nii file
-    spm_write_vol(zmapHdr, zmapImg);
+    % write map of extracted values 
+    mask_new = load_untouch_nii(maskFileName);
+    maskIndex = find(mask_new.img == 1);
+    dims = size(mask_new.img);
+    zmapmasked = data2write;
+    zmap3Dmask = zeros(size(mask_new.img));
+    zmap3Dmask(maskIndex) = zmapmasked;
+    new_nii = make_nii(zmap3Dmask);
+    new_nii.hdr = mask_new.hdr;
+    new_nii.hdr.dime.dim(2:5) = [dims(1) dims(2) dims(3) 1];
+
+
+    save_nii(new_nii, fullfile(destinationDir,newFileName));
 
 end
-
-
