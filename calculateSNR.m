@@ -155,7 +155,7 @@ function opt = calculateSNR(opt)
 
     %%
     % loop through runs
-    for iRun = 1:iRuns
+    for iRun = 1:nRuns
 
         fprintf('Read in file ... \n');
 
