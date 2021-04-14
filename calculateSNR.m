@@ -3,10 +3,10 @@
 function opt = calculateSNR(opt)
     % SNR analysis script adapted from
     % Xiaoqing Gao, Feb 27, 2020, Hangzhou xiaoqinggao@zju.edu.cn
-
     % dependent of CPP-BIDS, CPP-SPM and SPM functions
 
     %% set up experiment related info
+
     % number of steps per analysed period
     opt.nStepsPerPeriod = 4;
 
@@ -30,24 +30,31 @@ function opt = calculateSNR(opt)
         end
     end
 
+    % setup output directory
+    destinationDir = createOutputDirectory(opt);
+    
     %% let's start
+    
+    % get mask image
+    % use a predefined mask, only calculate voxels within the mask
+    % below is same resolution as the functional images
+    maskFileName = opt.funcMask;
+    
+    if opt.anatMask == 1
+        maskFileName = opt.anatMaskFileName;
+    end
+
+    % load the mask
+    maskHdr = spm_vol(maskFileName);
+    maskImg = spm_read_vols(maskHdr);
+
+    % get functional image
     % we let SPM figure out what is in this BIDS data set
     opt = getSpecificBoldFiles(opt);
 
     % add or count tot run number
     allRunFiles = opt.allFiles;
-
-    % use a predefined mask, only calculate voxels within the mask
-    % below is same resolution as the functional images
-    maskFileName = opt.anatMaskFileName;
-
-    if ~opt.anatMask == 1
-        maskFileName = makeFuncIndivMask(opt);
-    end
-
-    maskFile = spm_vol(maskFileName);
-    mask = spm_read_vols(maskFile);
-
+    
     %% setup parameters for FFT analysis
     % mri.repetition time(TR)
     repetitionTime = 1.75;
@@ -67,7 +74,7 @@ function opt = calculateSNR(opt)
 
     % set voxel and run numbers
     %RunPattern = struct();
-    nVox = sum(mask(:) > 0);
+    nVox = sum(maskImg(:) > 0);
     nRuns = length(allRunFiles);
 
     % number of samples (round to smallest even number)
@@ -152,47 +159,52 @@ function opt = calculateSNR(opt)
         fprintf('Read in file ... \n');
 
         % choose current BOLD file
-        boldFileName = allRunFiles{iRun};
-
+        boldFile = allRunFiles{iRun};
+        [~,boldFileName, ext] = fileparts(boldFile);
+        
         % read/load bold file
-        boldFile = spm_vol(boldFileName);
-        signal = spm_read_vols(boldFile); % check the load_untouch_nii to compare
-        signal = reshape(signal, [size(signal, 1) * size(signal, 2) * ...
-                                  size(signal, 3) size(signal, 4)]);
+        boldHdr = spm_vol(boldFile);
+        boldImg = spm_read_vols(boldHdr); 
+        boldImg = reshape(boldImg, [size(boldImg, 1) * size(boldImg, 2) * ...
+                                  size(boldImg, 3) size(boldImg, 4)]);
 
         % find cyclic volume
-        totalVol = length(spm_vol(boldFileName));
+        totalVol = length(boldHdr);
         sequenceVol = totalVol - onsetDelay - endDelay;
 
         % remove the first 4 volumes, using this step to make the face stimulus onset at 0
-        Pattern = signal(mask == 1, (onsetDelay + 1):(sequenceVol + onsetDelay));
-        Pattern = Pattern';
-
-        % interpolate (resample)
-        xi = linspace(0, oldN, N);
-
+        boldImg = boldImg(maskImg > 0, (onsetDelay + 1):(sequenceVol + onsetDelay));
+        boldImg = boldImg';
+        
         % filter and interpolate
-        patternResampled = zeros(N, size(Pattern, 2));
+        boldResampled = zeros(N, size(boldImg, 2));
+        
+        % interpolate (resample)
+        timeVector = linspace(1, oldN, N);
+        oldTimeVector = 1:oldN;
+        
 
-        for voxi = 1:size(Pattern, 2)
+        for iVoxel = 1:size(boldImg, 2)
             % low-pass filter
-            PatternFilt = filtfilt(filtkern, 1, Pattern(:, voxi));
+            boldFilter = filtfilt(filtkern, 1, boldImg(:, iVoxel));
             % interpolate
-            patternResampled(:, voxi) = interp1([1:oldN], PatternFilt, xi, 'spline');
+            boldResampled(:, iVoxel) = interp1(oldTimeVector, boldFilter,...
+                                               timeVector, 'spline');
         end
 
         % check that sizes ale okay
-        if size(Pattern, 1) ~= oldN
+        if size(boldImg, 1) ~= oldN
             error('check number of volumes for the original');
         end
-        if size(patternResampled, 1) ~= N
+        if size(boldResampled, 1) ~= N
             error('check number of volumes for the original');
         end
 
         % remove linear trend
-        patternDetrend = detrend(patternResampled);
+        boldDetrend = detrend(boldResampled);
 
-        [targetZ, cfg] = calculateFourier(patternDetrend, patternResampled, cfg);
+        % run FFT
+        [targetZ, cfg] = calculateFourier(boldDetrend, boldResampled, cfg);
 
         %     % unused parameters for now
         %     targetPhase = cfg.targetPhase;
@@ -200,36 +212,35 @@ function opt = calculateSNR(opt)
         %     tSNR = cfg.tSNR;
         %     %
 
-        allRunsRaw(:, :, iRun) = patternResampled;
-        allRunsDT(:, :, iRun) = patternDetrend;
+        allRunsRaw(:, :, iRun) = boldResampled;
+        allRunsDT(:, :, iRun) = boldDetrend;
 
         fprintf('Saving ... \n');
 
-        % z-scored 1-D vector
-        zmapmasked = targetZ;
+        % create template hdr to be saved
+        zmapHdr = maskHdr;
+        zmapnewName = fullfile(destinationDir, ...
+                               ['SNR_', boldFileName, ext]);
+        %zmapHdr.fname =  zmapnewName;
+        zmapHdr.fname = spm_file(zmapHdr.fname,'filename',zmapnewName);
+        
+        % % % 
+        
+        % use spm_file with another option than "filename" to change the
+        % saving path. at the moment it still saves into :
+        % '/Users/battal/Cerens_files/fMRI/Processed/RhythmCateg/PitchFT/derivatives/cpp_spm/SNR_s3wuasub-011_ses-001_task-PitchFT_run-001_bold.nii'
+        % fpath did not work
+        
+        % % %
+        % get dimensions & allocate 3-D img
+        zmapImg = zeros(zmapHdr.dim);
 
-        % allocate 3-D img
-        % get the mask
-        mask_new = load_untouch_nii(maskFileName);
-        zmap3Dmask = zeros(size(mask_new.img));
-
-        % get mask index
-        maskIndex = find(mask_new.img == 1);
-
+        % get mask index for non-zero values &
         % assign z-scores from 1-D to their correcponding 3-D location
-        zmap3Dmask(maskIndex) = zmapmasked;
+        zmapImg(find(maskImg > 0)) = targetZ; %#ok<FNDSB>
 
-        new_nii = make_nii(zmap3Dmask);
-
-        new_nii.hdr = mask_new.hdr;
-
-        % get dimensions to save
-        dims = size(mask_new.img);
-        new_nii.hdr.dime.dim(2:5) = [dims(1) dims(2) dims(3) 1];
-
-        %   % save the results
-        %   FileName = fullfile(opt.destinationDir, ['SNR_', boldFileName, ext]);
-        %   save_nii(new_nii, FileName);
+        % save result as .nii file
+        spm_write_vol(zmapHdr, zmapImg);
 
     end
 
@@ -252,13 +263,13 @@ function opt = calculateSNR(opt)
 
     % save figure
     valueName = 'AvgZTarget-bestVox';
-    fileName = [getOutputFileName(valueName, boldFileName, opt), '.fig'];
+    fileName = [getOutputFileName(valueName, boldFile, destinationDir), '.fig'];
     saveas(f, fileName);
     close(f);
 
     % save map as nii
     valueName = 'AvgZTarget';
-    writeMap(targetZ, maskFileName, valueName, opt);
+    writeMap(targetZ, maskFileName, valueName, destinationDir);
 
     % ----------------------------------------------------------------
     % zscore at target frequency and harmonics (average amp first)
@@ -302,20 +313,20 @@ function opt = calculateSNR(opt)
 
     % save figure
     valueName = 'AvgZHarmonics-bestVoxMean';
-    fileName = [getOutputFileName(valueName, boldFileName, opt), '.fig'];
+    fileName = [getOutputFileName(valueName, boldFile, destinationDir), '.fig'];
     saveas(f, fileName);
     close(f);
 
     % plot best voxels and save figure
     f = plotmXBestVox(freq, mXSNRAmp, targetHarmonicsZ, 10, cfg.idxHarmonics);
     valueName = 'AvgZHarmonics-bestVox';
-    fileName = [getOutputFileName(valueName, boldFileName, opt), '.fig'];
+    fileName = [getOutputFileName(valueName, boldFile, destinationDir), '.fig'];
     saveas(f, fileName);
     close(f);
 
     % save map as nii
     valueName = 'AvgZHarmonics';
-    writeMap(targetHarmonicsZ, maskFileName, valueName, opt);
+    writeMap(targetHarmonicsZ, maskFileName, valueName, destinationDir);
 
     % ----------------------------------------------------------------
     % SNR at target frequency as ratio to neighbouring bins
@@ -328,17 +339,17 @@ function opt = calculateSNR(opt)
 
     % save figure
     valueName = 'AvgRatioTarget-bestVox';
-    fileName = [getOutputFileName(valueName, boldFileName, opt), '.fig'];
+    fileName = [getOutputFileName(valueName, boldFile, destinationDir), '.fig'];
     saveas(f, fileName);
     close(f);
 
     % save map as nii
     valueName = 'AvgRatioTarget';
-    writeMap(targetSNRRatio, maskFileName, valueName, opt);
+    writeMap(targetSNRRatio, maskFileName, valueName, destinationDir);
 
 end
 
-function writeMap(data2write, maskFileName, valueName, opt)
+function writeMap(data2write, maskFileName, valueName, destinationDir)
 
     % write map of extracted values
     mask_new = load_untouch_nii(maskFileName);
@@ -360,16 +371,16 @@ function writeMap(data2write, maskFileName, valueName, opt)
     new_nii.hdr.dime.dim(2:5) = [dims(1) dims(2) dims(3) 1];
 
     % create a filename
-    fileName = [getOutputFileName(valueName, boldFileName, opt), '.nii'];
+    fileName = [getOutputFileName(valueName, boldFileName, destinationDir), '.nii'];
 
     % save output file
     save_nii(new_nii, fileName);
 
 end
 
-function fileName = getOutputFileName(valueName, boldFileName, opt)
+function fileName = getOutputFileName(valueName, boldFileName, destinationDir)
 
-    fileName = fullfile(opt.destinationDir, [valueName, boldFileName]);
+    fileName = fullfile(destinationDir, [valueName, boldFileName]);
 end
 
 % % set save filename and save results as .nii
