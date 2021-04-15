@@ -1,14 +1,12 @@
 % (C) Copyright 2020 RnB FFT-analysis developers
 
-function opt = getSpecificBoldFiles(opt)
+function opt = getSpecificBoldFiles(opt, subLabel)
     % gets the specificed bold files for the FFT analysis
     % dependend on cpp-spm and bids-matlab functions.
 
     % we let SPM figure out what is in this BIDS data set
     [BIDS, opt] = getData(opt);
 
-    % think about changing hardcore coding of subject{1} ! ! !
-    subLabel = opt.subjects{1};
 
     %% Get functional files for FFT
     % identify sessions for this subject
