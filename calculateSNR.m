@@ -9,7 +9,6 @@ function opt = calculateSNR(opt)
 
     % number of steps per analysed period
     % Set default for RhythmFT and PitchFT analyses
-    opt.nStepsPerPeriod = 4;
     opt.whichHarmonics = [1, 2];
     
     % select which harmonics to take into account (always include 1st)
@@ -51,7 +50,7 @@ function opt = calculateSNR(opt)
 
     % get functional image
     % we let SPM figure out what is in this BIDS data set
-    opt = getSpecificBoldFiles(opt);
+    opt = getSpecificBoldFiles(opt, subLabel);
 
     % add or count tot run number
     allRunFiles = opt.allFiles;
@@ -114,38 +113,38 @@ function opt = calculateSNR(opt)
     order   = round(7 * oldFs / fcutoff);
     shape   = [1 1 0 0];
     frex    = [0, fcutoff, fcutoff + fcutoff * transw, oldFs / 2] / (oldFs / 2);
-%     hz      = linspace(0, oldFs / 2, floor(oldN / 2) + 1);
+    hz      = linspace(0, oldFs / 2, floor(oldN / 2) + 1);
 
     % get filter kernel
     filtkern = firls(order, frex, shape);
 
-%     % get kernel power spectrum
-%     filtkernX = abs(fft(filtkern, oldN)).^2;
-%     filtkernXdb = 10 * log10(abs(fft(filtkern, oldN)).^2);
+    % get kernel power spectrum
+    filtkernX = abs(fft(filtkern, oldN)).^2;
+    filtkernXdb = 10 * log10(abs(fft(filtkern, oldN)).^2);
 
     % % plot filter properties (visual check)
-    % figure
-    % plotedge = dsearchn(hz',fcutoff*3);
-    %
-    % subplot(2,2,1)
-    % plot((-order/2:order/2)/fs,filtkern,'k','linew',3)
-    % xlabel('Time (s)')
-    % title('Filter kernel')
-    %
-    % subplot(2,2,2), hold on
-    % plot(frex*fs/2,shape,'r','linew',1)
-    %
-    % plot(hz,filtkernX(1:length(hz)),'k','linew',2)
-    % set(gca,'xlim',[0 fcutoff*3])
-    % xlabel('Frequency (Hz)'), ylabel('Gain')
-    % title('Filter kernel spectrum')
-    %
-    % subplot(2,2,4)
-    % plot(hz,filtkernXdb(1:length(hz)),'k','linew',2)
-    % set(gca,'xlim',[0 fcutoff*3],'ylim',...
-    %    [min([filtkernXdb(plotedge) filtkernXdb(plotedge)]) 5])
-    % xlabel('Frequency (Hz)'), ylabel('Gain')
-    % title('Filter kernel spectrum (dB)')
+%     figure
+%     plotedge = dsearchn(hz',fcutoff*3);
+%     
+%     subplot(2,2,1)
+%     plot((-order/2:order/2)/fs,filtkern,'k','linew',3)
+%     xlabel('Time (s)')
+%     title('Filter kernel')
+%     
+%     subplot(2,2,2), hold on
+%     plot(frex*fs/2,shape,'r','linew',1)
+%     
+%     plot(hz,filtkernX(1:length(hz)),'k','linew',2)
+%     set(gca,'xlim',[0 fcutoff*3])
+%     xlabel('Frequency (Hz)'), ylabel('Gain')
+%     title('Filter kernel spectrum')
+%     
+%     subplot(2,2,4)
+%     plot(hz,filtkernXdb(1:length(hz)),'k','linew',2)
+%     set(gca,'xlim',[0 fcutoff*3],'ylim',...
+%        [min([filtkernXdb(plotedge) filtkernXdb(plotedge)]) 5])
+%     xlabel('Frequency (Hz)'), ylabel('Gain')
+%     title('Filter kernel spectrum (dB)')
 
     %% Calculate SNR for each run
     % mypool = gcp('nocreate');
@@ -361,13 +360,14 @@ function writeMap(data2write, maskFileName, newFileName, destinationDir)
 
     % write map of extracted values 
     mask_new = load_untouch_nii(maskFileName);
-    maskIndex = find(mask_new.img > 0);
-    dims = size(mask_new.img);
-    zmapmasked = data2write;
+    
     zmap3Dmask = zeros(size(mask_new.img));
-    zmap3Dmask(maskIndex) = zmapmasked;
+    zmap3Dmask(find(mask_new.img > 0)) = data2write;
+    
     new_nii = make_nii(zmap3Dmask);
     new_nii.hdr = mask_new.hdr;
+    
+    dims = size(mask_new.img);
     new_nii.hdr.dime.dim(2:5) = [dims(1) dims(2) dims(3) 1];
 
 
