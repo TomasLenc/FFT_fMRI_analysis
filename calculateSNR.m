@@ -268,12 +268,12 @@ function opt = calculateSNR(opt)
     % zscore at target frequency
     % run FFT on average bold
     [AvrZTarget, cfg, FT] = calculateFourier(avgBold, avgRawBold, cfg);
-    
+
     % save map as nii
     newFileName = ['AvgZTarget_', boldFileName, '.nii'];
     writeMap(AvrZTarget, maskHdr, maskImg, newFileName, destinationDir);
-%     writeMap(AvrZTarget, maskHdr.fname, newFileName, destinationDir);
-                 
+    %     writeMap(AvrZTarget, maskHdr.fname, newFileName, destinationDir);
+
     % plot best voxels
     blfun = @(x, y) x - y;
     mXSNRAmp = baselineCorrect(abs(FT), cfg, 'fun', blfun);
@@ -308,11 +308,11 @@ function opt = calculateSNR(opt)
     [~, idxSorted] = sort(targetHarmonicsZ, 'descend');
     idxSorted(isnan(targetHarmonicsZ(idxSorted))) = [];
     nMax = 10;
-    
+
     f = figure('color', 'white', 'Position', [131 728 1744 140]);
     pnl = panel(f);
     pnl.pack('h', nMax);
-    
+
     for iVox = 1:nMax
         mXbest = mXavgHarmonics(:, idxSorted(iVox));
         pnl(iVox).select();
@@ -329,7 +329,7 @@ function opt = calculateSNR(opt)
                       idxSorted(iVox)));
         set(gca, 'xtick', []);
     end
-    
+
     pnl.ylabel('amplitude');
     pnl.marginbottom = 3;
 
