@@ -27,342 +27,345 @@ function opt = calculateSNR(opt)
     end
 
     % setup output directory
-    subLabel = opt.subjects{1};
-    destinationDir = createOutputDirectory(opt, subLabel);
+    for iSub = 1:numel(opt.subjects)
 
-    % want to save each run FFT results
-    saveEachRun = 1;
+        subLabel = opt.subjects{iSub};
+        
+        destinationDir = createOutputDirectory(opt, subLabel);
 
-    %% let's start
+        % want to save each run FFT results
+        saveEachRun = 1;
 
-    % get mask image
-    % use a predefined mask, only calculate voxels within the mask
-    % below is same resolution as the functional images
-    maskFileName = opt.funcMask;
+        %% let's start
 
-    if opt.anatMask == 1
-        maskFileName = opt.anatMaskFileName;
+        % get mask image
+        % use a predefined mask, only calculate voxels within the mask
+        % below is same resolution as the functional images
+        maskFileName = opt.funcMask;
+
+        if opt.anatMask == 1
+            maskFileName = opt.anatMaskFileName;
+        end
+
+        % load the mask
+        maskHdr = spm_vol(maskFileName);
+        maskImg = spm_read_vols(maskHdr);
+
+        %     % output images
+        %     outputHdr = spm_vol(outputImage);
+        %     outputImg = spm_read_vols(outputHdr);
+
+        % get functional image
+        % we let SPM figure out what is in this BIDS data set
+        opt = getSpecificBoldFiles(opt, subLabel);
+
+        % add or count tot run number
+        allRunFiles = opt.allFiles;
+
+        %% setup parameters for FFT analysis
+        % mri.repetition time(TR)
+        repetitionTime = 1.75;
+
+        % repetition of steps/categA
+        patternDuration     = 12 * 0.190;
+        segmentDuration     = 4 * patternDuration;
+        stepDuration        = opt.nStepsPerPeriod * segmentDuration;
+
+        % Number of vol before/after the rhythmic sequence (exp) are presented
+        onsetDelay = 2;
+        endDelay = 4;
+
+        % use neighbouring 4 bins as noise frequencies
+        cfg.binSize = 4;
+        cfg.gap = 1;
+
+        % set voxel and run numbers
+        nVox = sum(maskImg(:) == 1);
+        nRuns = length(allRunFiles);
+
+        % number of samples (round to smallest even number)
+        oldN = 105; % before resampling
+        N = 104; % after resampling
+
+        % calculate frequencies
+        oddballFreq = 1 / stepDuration;
+        oldFs =  1 / repetitionTime;
+        fs = 1 / (182.4 / N);
+
+        % frequencies
+        freq = fs / 2 * linspace(0, 1, N / 2 + 1);
+
+        % target frequency (this is a bad name, because it's a freq. bin INDEX)
+        cfg.targetFrequency = round(N * oddballFreq / fs + 1);
+
+        % harmonics of the target frequency and their bin indices
+        cfg.harmonics = freq(cfg.targetFrequency) * opt.whichHarmonics;
+        cfg.idxHarmonics = dsearchn(freq', cfg.harmonics');
+
+        % number of bins for phase histogram
+        cfg.histBin = 20;
+
+        % threshold for choosing voxels for the phase distribution analysis
+        cfg.thresh = 4;
+
+        % preallocate to read all the runs and save
+        allRunsBoldRaw = nan(N, nVox, nRuns);
+        allRunsBoldDT = nan(N, nVox, nRuns);
+
+        %%
+        % design low-pass filter (to be 100% sure you prevent aliasing)
+        fcutoff = fs / 4;
+        transw  = .1;
+        order   = round(7 * oldFs / fcutoff);
+        shape   = [1 1 0 0];
+        frex    = [0, fcutoff, fcutoff + fcutoff * transw, oldFs / 2] / (oldFs / 2);
+        hz      = linspace(0, oldFs / 2, floor(oldN / 2) + 1);
+
+        % get filter kernel
+        filtkern = firls(order, frex, shape);
+
+        % get kernel power spectrum
+        filtkernX = abs(fft(filtkern, oldN)).^2;
+        filtkernXdb = 10 * log10(abs(fft(filtkern, oldN)).^2);
+
+        % % plot filter properties (visual check)
+        %     figure
+        %     plotedge = dsearchn(hz',fcutoff*3);
+        %
+        %     subplot(2,2,1)
+        %     plot((-order/2:order/2)/fs,filtkern,'k','linew',3)
+        %     xlabel('Time (s)')
+        %     title('Filter kernel')
+        %
+        %     subplot(2,2,2), hold on
+        %     plot(frex*fs/2,shape,'r','linew',1)
+        %
+        %     plot(hz,filtkernX(1:length(hz)),'k','linew',2)
+        %     set(gca,'xlim',[0 fcutoff*3])
+        %     xlabel('Frequency (Hz)'), ylabel('Gain')
+        %     title('Filter kernel spectrum')
+        %
+        %     subplot(2,2,4)
+        %     plot(hz,filtkernXdb(1:length(hz)),'k','linew',2)
+        %     set(gca,'xlim',[0 fcutoff*3],'ylim',...
+        %        [min([filtkernXdb(plotedge) filtkernXdb(plotedge)]) 5])
+        %     xlabel('Frequency (Hz)'), ylabel('Gain')
+        %     title('Filter kernel spectrum (dB)')
+
+        %% Calculate SNR for each run
+        % mypool = gcp('nocreate');
+        % if isempty(mypool);
+        %     parpool(4);
+        % end
+
+        %%
+        % loop through runs
+        for iRun = 1:nRuns
+
+            fprintf('Read in file ... \n');
+
+            % choose current BOLD file
+            boldFile = allRunFiles{iRun};
+            [~, boldFileName, ~] = fileparts(boldFile);
+
+            % read/load bold file
+            boldHdr = spm_vol(boldFile);
+            boldImg = spm_read_vols(boldHdr);
+            boldImg = reshape(boldImg, [size(boldImg, 1) * size(boldImg, 2) * ...
+                                        size(boldImg, 3) size(boldImg, 4)]);
+
+            % find cyclic volume
+            totalVol = length(boldHdr);
+            sequenceVol = totalVol - onsetDelay - endDelay;
+
+            % remove the first 4 volumes, using this step to make the face stimulus onset at 0
+            boldImg = boldImg(maskImg == 1, (onsetDelay + 1):(sequenceVol + onsetDelay));
+            boldImg = boldImg';
+
+            % control here, e.g. is the mask is bigger than the func img, we
+            % would have zeros so we are getting rid off them below
+
+            % save non-zero mask and reallocate the martix
+            if iRun == 1
+
+                % Getting rid off zeros
+                zeroMask = all(boldImg == 0, 1);
+                boldImg = boldImg(:, ~zeroMask);
+                nVox = size(boldImg, 2);
+
+                % remove also the mask' image zeros
+                removeMaskZeros(maskFileName, boldFile);
+
+                % reload the mask
+                maskHdr = spm_vol(maskFileName);
+                maskImg = spm_read_vols(maskHdr);
+
+                % reload the new mask
+
+                % reallocate with the correct voxel size
+                allRunsBoldRaw = nan(N, nVox, nRuns);
+                allRunsBoldDT = nan(N, nVox, nRuns);
+            end
+
+            % filter and interpolate
+            boldResampled = zeros(N, size(boldImg, 2));
+
+            % interpolate (resample)
+            timeVector = linspace(1, oldN, N);
+            oldTimeVector = 1:oldN;
+
+            for iVoxel = 1:size(boldImg, 2)
+                % low-pass filter
+                boldFilter = filtfilt(filtkern, 1, boldImg(:, iVoxel));
+                % interpolate
+                boldResampled(:, iVoxel) = interp1(oldTimeVector, boldFilter, ...
+                                                   timeVector, 'spline');
+            end
+
+            % check that sizes ale okay
+            if size(boldImg, 1) ~= oldN
+                error('check number of volumes for the original');
+            end
+            if size(boldResampled, 1) ~= N
+                error('check number of volumes for the original');
+            end
+
+            % remove linear trend
+            boldDetrend = detrend(boldResampled);
+
+            % run FFT
+            [targetZ, cfg, ~] = calculateFourier(boldDetrend, boldResampled, cfg);
+
+            %     % unused parameters for now
+            %     targetPhase = cfg.targetPhase;
+            %     targetSNRsigned = cfg.targetSNRsigned;
+            %     tSNR = cfg.tSNR;
+            %     %
+
+            allRunsBoldRaw(:, :, iRun) = boldResampled;
+            allRunsBoldDT(:, :, iRun) = boldDetrend;
+
+            % save the output
+            if saveEachRun == 1
+
+                fprintf('Saving each run output... \n');
+
+                newFileName = ['SNR_', boldFileName, '.nii'];
+                writeMap(targetZ, maskHdr, maskImg, newFileName, destinationDir);
+                %             writeMap(targetZ, maskHdr.fname, newFileName, destinationDir);
+
+            end
+        end
+
+        %% Calculate SNR for the averaged time course of the all runs
+        fprintf('Calculating average... \n');
+
+        % rename the file name for saving
+        boldFileName = regexprep(boldFileName, 'run-(\d*)_', '');
+
+        % average runs in the time domain
+        avgBold = mean(allRunsBoldDT, 3);
+        avgRawBold = mean(allRunsBoldRaw, 3);
+
+        % ----------------------------------------------------------------
+        % zscore at target frequency
+        % run FFT on average bold
+        [AvrZTarget, cfg, FT] = calculateFourier(avgBold, avgRawBold, cfg);
+
+        % save map as nii
+        newFileName = ['AvgZTarget_', boldFileName, '.nii'];
+        writeMap(AvrZTarget, maskHdr, maskImg, newFileName, destinationDir);
+        %     writeMap(AvrZTarget, maskHdr.fname, newFileName, destinationDir);
+
+        % plot best voxels
+        blfun = @(x, y) x - y;
+        mXSNRAmp = baselineCorrect(abs(FT), cfg, 'fun', blfun);
+        f = plotmXBestVox(freq, mXSNRAmp, AvrZTarget, 10, cfg.idxHarmonics);
+
+        % save figure
+        newFileName = 'AvgZTarget-bestVox_';
+        fileName = fullfile(destinationDir, [newFileName, boldFileName, '.fig']);
+        saveas(f, fileName);
+        close(f);
+
+        % ----------------------------------------------------------------
+        % zscore at target frequency and harmonics (average amp first)
+        mXavgHarmonics = getAvgHarmonics(abs(FT), cfg.idxHarmonics, cfg.binSize);
+
+        noiseFs = [(cfg.binSize + 1 - cfg.binSize / 2 - cfg.gap) ...
+                   :(cfg.binSize + 1 - 1 - cfg.gap) ...
+                   (cfg.binSize + 1 + 1 + cfg.gap) ...
+                   :(cfg.binSize + 1 + cfg.binSize / 2 + cfg.gap)];
+
+        AmpNoise = mXavgHarmonics(noiseFs, :);
+        NoiseMean = mean(AmpNoise, 1);
+        NoiseSD = std(AmpNoise, 0, 1);
+        targetHarmonicsZ = (mXavgHarmonics(cfg.binSize + 1, :) - NoiseMean) ./ NoiseSD;
+
+        % save map as nii
+        newFileName = ['AvgZHarmonics_', boldFileName, '.nii'];
+        writeMap(targetHarmonicsZ, maskHdr, maskImg, newFileName, destinationDir);
+        %     writeMap(targetHarmonicsZ, maskHdr.fname, newFileName, destinationDir);
+
+        % plot best voxels
+        [~, idxSorted] = sort(targetHarmonicsZ, 'descend');
+        idxSorted(isnan(targetHarmonicsZ(idxSorted))) = [];
+        nMax = 10;
+
+        f = figure('color', 'white', 'Position', [131 728 1744 140]);
+        pnl = panel(f);
+        pnl.pack('h', nMax);
+
+        for iVox = 1:nMax
+            mXbest = mXavgHarmonics(:, idxSorted(iVox));
+            pnl(iVox).select();
+            h = stem(mXbest, ...
+                     'marker', 'none', ...
+                     'color', [0.6, 0.6, 0.6], ...
+                     'linew', 4);
+            hold on;
+            h = stem(cfg.binSize + 1, mXbest(cfg.binSize + 1), ...
+                     'marker', 'none', ...
+                     'color', 'r', ...
+                     'linew', 4);
+            title(sprintf('z=%.2f  vox=%d', targetHarmonicsZ(idxSorted(iVox)), ...
+                          idxSorted(iVox)));
+            set(gca, 'xtick', []);
+        end
+
+        pnl.ylabel('amplitude');
+        pnl.marginbottom = 3;
+
+        % save figure
+        newFileName = ['AvgZHarmonics-bestVoxMean_', boldFileName, '.fig'];
+        saveas(f, fullfile(destinationDir, newFileName));
+        close(f);
+
+        % plot best voxels and save figure
+        f = plotmXBestVox(freq, mXSNRAmp, targetHarmonicsZ, 10, cfg.idxHarmonics);
+        newFileName = ['AvgZHarmonics-bestVox_', boldFileName, '.fig'];
+        saveas(f, fullfile(destinationDir, newFileName));
+        close(f);
+
+        % ----------------------------------------------------------------
+        % SNR at target frequency as ratio to neighbouring bins
+        blfun = @(x, y) x ./ y;
+        mXSNRRatio = baselineCorrect(abs(FT), cfg, 'fun', blfun);
+        targetSNRRatio = mXSNRRatio(cfg.targetFrequency, :);
+
+        % plot best voxels
+        f = plotmXBestVox(freq, mXSNRRatio, targetSNRRatio, 10, cfg.idxHarmonics, 'ratio');
+
+        % save figure
+        newFileName = ['AvgRatioTarget-bestVox_', boldFileName, '.fig'];
+        saveas(f, fullfile(destinationDir, newFileName));
+        close(f);
+
+        % save map as nii
+        newFileName = ['AvgRatioTarget_', boldFileName, '.nii'];
+        writeMap(targetSNRRatio, maskHdr, maskImg, newFileName, destinationDir);
+        % writeMap(targetSNRRatio, maskHdr.fname, newFileName, destinationDir);
     end
-
-    % load the mask
-    maskHdr = spm_vol(maskFileName);
-    maskImg = spm_read_vols(maskHdr);
-
-    %     % output images
-    %     outputHdr = spm_vol(outputImage);
-    %     outputImg = spm_read_vols(outputHdr);
-
-    % get functional image
-    % we let SPM figure out what is in this BIDS data set
-    opt = getSpecificBoldFiles(opt, subLabel);
-
-    % add or count tot run number
-    allRunFiles = opt.allFiles;
-
-    %% setup parameters for FFT analysis
-    % mri.repetition time(TR)
-    repetitionTime = 1.75;
-
-    % repetition of steps/categA
-    patternDuration     = 12 * 0.190;
-    segmentDuration     = 4 * patternDuration;
-    stepDuration        = opt.nStepsPerPeriod * segmentDuration;
-
-    % Number of vol before/after the rhythmic sequence (exp) are presented
-    onsetDelay = 2;
-    endDelay = 4;
-
-    % use neighbouring 4 bins as noise frequencies
-    cfg.binSize = 4;
-    cfg.gap = 1;
-
-    % set voxel and run numbers
-    nVox = sum(maskImg(:) == 1);
-    nRuns = length(allRunFiles);
-
-    % number of samples (round to smallest even number)
-    oldN = 105; % before resampling
-    N = 104; % after resampling
-
-    % calculate frequencies
-    oddballFreq = 1 / stepDuration;
-    oldFs =  1 / repetitionTime;
-    fs = 1 / (182.4 / N);
-
-    % frequencies
-    freq = fs / 2 * linspace(0, 1, N / 2 + 1);
-
-    % target frequency (this is a bad name, because it's a freq. bin INDEX)
-    cfg.targetFrequency = round(N * oddballFreq / fs + 1);
-
-    % harmonics of the target frequency and their bin indices
-    cfg.harmonics = freq(cfg.targetFrequency) * opt.whichHarmonics;
-    cfg.idxHarmonics = dsearchn(freq', cfg.harmonics');
-
-    % number of bins for phase histogram
-    cfg.histBin = 20;
-
-    % threshold for choosing voxels for the phase distribution analysis
-    cfg.thresh = 4;
-
-    % preallocate to read all the runs and save
-    allRunsBoldRaw = nan(N, nVox, nRuns);
-    allRunsBoldDT = nan(N, nVox, nRuns);
-
-    %%
-    % design low-pass filter (to be 100% sure you prevent aliasing)
-    fcutoff = fs / 4;
-    transw  = .1;
-    order   = round(7 * oldFs / fcutoff);
-    shape   = [1 1 0 0];
-    frex    = [0, fcutoff, fcutoff + fcutoff * transw, oldFs / 2] / (oldFs / 2);
-    hz      = linspace(0, oldFs / 2, floor(oldN / 2) + 1);
-
-    % get filter kernel
-    filtkern = firls(order, frex, shape);
-
-    % get kernel power spectrum
-    filtkernX = abs(fft(filtkern, oldN)).^2;
-    filtkernXdb = 10 * log10(abs(fft(filtkern, oldN)).^2);
-
-    % % plot filter properties (visual check)
-    %     figure
-    %     plotedge = dsearchn(hz',fcutoff*3);
-    %
-    %     subplot(2,2,1)
-    %     plot((-order/2:order/2)/fs,filtkern,'k','linew',3)
-    %     xlabel('Time (s)')
-    %     title('Filter kernel')
-    %
-    %     subplot(2,2,2), hold on
-    %     plot(frex*fs/2,shape,'r','linew',1)
-    %
-    %     plot(hz,filtkernX(1:length(hz)),'k','linew',2)
-    %     set(gca,'xlim',[0 fcutoff*3])
-    %     xlabel('Frequency (Hz)'), ylabel('Gain')
-    %     title('Filter kernel spectrum')
-    %
-    %     subplot(2,2,4)
-    %     plot(hz,filtkernXdb(1:length(hz)),'k','linew',2)
-    %     set(gca,'xlim',[0 fcutoff*3],'ylim',...
-    %        [min([filtkernXdb(plotedge) filtkernXdb(plotedge)]) 5])
-    %     xlabel('Frequency (Hz)'), ylabel('Gain')
-    %     title('Filter kernel spectrum (dB)')
-
-    %% Calculate SNR for each run
-    % mypool = gcp('nocreate');
-    % if isempty(mypool);
-    %     parpool(4);
-    % end
-
-    %%
-    % loop through runs
-    for iRun = 1:nRuns
-
-        fprintf('Read in file ... \n');
-
-        % choose current BOLD file
-        boldFile = allRunFiles{iRun};
-        [~, boldFileName, ~] = fileparts(boldFile);
-
-        % read/load bold file
-        boldHdr = spm_vol(boldFile);
-        boldImg = spm_read_vols(boldHdr);
-        boldImg = reshape(boldImg, [size(boldImg, 1) * size(boldImg, 2) * ...
-                                    size(boldImg, 3) size(boldImg, 4)]);
-
-        % find cyclic volume
-        totalVol = length(boldHdr);
-        sequenceVol = totalVol - onsetDelay - endDelay;
-
-        % remove the first 4 volumes, using this step to make the face stimulus onset at 0
-        boldImg = boldImg(maskImg == 1, (onsetDelay + 1):(sequenceVol + onsetDelay));
-        boldImg = boldImg';
-
-        % control here, e.g. is the mask is bigger than the func img, we
-        % would have zeros so we are getting rid off them below
-
-        % save non-zero mask and reallocate the martix
-        if iRun == 1
-
-            % Getting rid off zeros
-            zeroMask = all(boldImg == 0, 1);
-            boldImg = boldImg(:, ~zeroMask);
-            nVox = size(boldImg, 2);
-
-            % remove also the mask' image zeros
-            removeMaskZeros(maskFileName, boldFile);
-
-            % reload the mask
-            maskHdr = spm_vol(maskFileName);
-            maskImg = spm_read_vols(maskHdr);
-
-            % reload the new mask
-
-            % reallocate with the correct voxel size
-            allRunsBoldRaw = nan(N, nVox, nRuns);
-            allRunsBoldDT = nan(N, nVox, nRuns);
-        end
-
-        % filter and interpolate
-        boldResampled = zeros(N, size(boldImg, 2));
-
-        % interpolate (resample)
-        timeVector = linspace(1, oldN, N);
-        oldTimeVector = 1:oldN;
-
-        for iVoxel = 1:size(boldImg, 2)
-            % low-pass filter
-            boldFilter = filtfilt(filtkern, 1, boldImg(:, iVoxel));
-            % interpolate
-            boldResampled(:, iVoxel) = interp1(oldTimeVector, boldFilter, ...
-                                               timeVector, 'spline');
-        end
-
-        % check that sizes ale okay
-        if size(boldImg, 1) ~= oldN
-            error('check number of volumes for the original');
-        end
-        if size(boldResampled, 1) ~= N
-            error('check number of volumes for the original');
-        end
-
-        % remove linear trend
-        boldDetrend = detrend(boldResampled);
-
-        % run FFT
-        [targetZ, cfg, ~] = calculateFourier(boldDetrend, boldResampled, cfg);
-
-        %     % unused parameters for now
-        %     targetPhase = cfg.targetPhase;
-        %     targetSNRsigned = cfg.targetSNRsigned;
-        %     tSNR = cfg.tSNR;
-        %     %
-
-        allRunsBoldRaw(:, :, iRun) = boldResampled;
-        allRunsBoldDT(:, :, iRun) = boldDetrend;
-
-        % save the output
-        if saveEachRun == 1
-
-            fprintf('Saving each run output... \n');
-
-            newFileName = ['SNR_', boldFileName, '.nii'];
-            writeMap(targetZ, maskHdr, maskImg, newFileName, destinationDir);
-            %             writeMap(targetZ, maskHdr.fname, newFileName, destinationDir);
-
-        end
-    end
-
-    %% Calculate SNR for the averaged time course of the all runs
-    fprintf('Calculating average... \n');
-
-    % rename the file name for saving
-    boldFileName = regexprep(boldFileName, 'run-(\d*)_', '');
-
-    % average runs in the time domain
-    avgBold = mean(allRunsBoldDT, 3);
-    avgRawBold = mean(allRunsBoldRaw, 3);
-
-    % ----------------------------------------------------------------
-    % zscore at target frequency
-    % run FFT on average bold
-    [AvrZTarget, cfg, FT] = calculateFourier(avgBold, avgRawBold, cfg);
-
-    % save map as nii
-    newFileName = ['AvgZTarget_', boldFileName, '.nii'];
-    writeMap(AvrZTarget, maskHdr, maskImg, newFileName, destinationDir);
-    %     writeMap(AvrZTarget, maskHdr.fname, newFileName, destinationDir);
-
-    % plot best voxels
-    blfun = @(x, y) x - y;
-    mXSNRAmp = baselineCorrect(abs(FT), cfg, 'fun', blfun);
-    f = plotmXBestVox(freq, mXSNRAmp, AvrZTarget, 10, cfg.idxHarmonics);
-
-    % save figure
-    newFileName = 'AvgZTarget-bestVox_';
-    fileName = fullfile(destinationDir, [newFileName, boldFileName, '.fig']);
-    saveas(f, fileName);
-    close(f);
-
-    % ----------------------------------------------------------------
-    % zscore at target frequency and harmonics (average amp first)
-    mXavgHarmonics = getAvgHarmonics(abs(FT), cfg.idxHarmonics, cfg.binSize);
-
-    noiseFs = [(cfg.binSize + 1 - cfg.binSize / 2 - cfg.gap) ...
-               :(cfg.binSize + 1 - 1 - cfg.gap) ...
-               (cfg.binSize + 1 + 1 + cfg.gap) ...
-               :(cfg.binSize + 1 + cfg.binSize / 2 + cfg.gap)];
-
-    AmpNoise = mXavgHarmonics(noiseFs, :);
-    NoiseMean = mean(AmpNoise, 1);
-    NoiseSD = std(AmpNoise, 0, 1);
-    targetHarmonicsZ = (mXavgHarmonics(cfg.binSize + 1, :) - NoiseMean) ./ NoiseSD;
-
-    % save map as nii
-    newFileName = ['AvgZHarmonics_', boldFileName, '.nii'];
-    writeMap(targetHarmonicsZ, maskHdr, maskImg, newFileName, destinationDir);
-    %     writeMap(targetHarmonicsZ, maskHdr.fname, newFileName, destinationDir);
-
-    % plot best voxels
-    [~, idxSorted] = sort(targetHarmonicsZ, 'descend');
-    idxSorted(isnan(targetHarmonicsZ(idxSorted))) = [];
-    nMax = 10;
-
-    f = figure('color', 'white', 'Position', [131 728 1744 140]);
-    pnl = panel(f);
-    pnl.pack('h', nMax);
-
-    for iVox = 1:nMax
-        mXbest = mXavgHarmonics(:, idxSorted(iVox));
-        pnl(iVox).select();
-        h = stem(mXbest, ...
-                 'marker', 'none', ...
-                 'color', [0.6, 0.6, 0.6], ...
-                 'linew', 4);
-        hold on;
-        h = stem(cfg.binSize + 1, mXbest(cfg.binSize + 1), ...
-                 'marker', 'none', ...
-                 'color', 'r', ...
-                 'linew', 4);
-        title(sprintf('z=%.2f  vox=%d', targetHarmonicsZ(idxSorted(iVox)), ...
-                      idxSorted(iVox)));
-        set(gca, 'xtick', []);
-    end
-
-    pnl.ylabel('amplitude');
-    pnl.marginbottom = 3;
-
-    % save figure
-    newFileName = ['AvgZHarmonics-bestVoxMean_', boldFileName, '.fig'];
-    saveas(f, fullfile(destinationDir, newFileName));
-    close(f);
-
-    % plot best voxels and save figure
-    f = plotmXBestVox(freq, mXSNRAmp, targetHarmonicsZ, 10, cfg.idxHarmonics);
-    newFileName = ['AvgZHarmonics-bestVox_', boldFileName, '.fig'];
-    saveas(f, fullfile(destinationDir, newFileName));
-    close(f);
-
-    % ----------------------------------------------------------------
-    % SNR at target frequency as ratio to neighbouring bins
-    blfun = @(x, y) x ./ y;
-    mXSNRRatio = baselineCorrect(abs(FT), cfg, 'fun', blfun);
-    targetSNRRatio = mXSNRRatio(cfg.targetFrequency, :);
-
-    % plot best voxels
-    f = plotmXBestVox(freq, mXSNRRatio, targetSNRRatio, 10, cfg.idxHarmonics, 'ratio');
-
-    % save figure
-    newFileName = ['AvgRatioTarget-bestVox_', boldFileName, '.fig'];
-    saveas(f, fullfile(destinationDir, newFileName));
-    close(f);
-
-    % save map as nii
-    newFileName = ['AvgRatioTarget_', boldFileName, '.nii'];
-    writeMap(targetSNRRatio, maskHdr, maskImg, newFileName, destinationDir);
-    % writeMap(targetSNRRatio, maskHdr.fname, newFileName, destinationDir);
-
 end
 
 function writeMap(data2write, maskHdr, maskImg, newFileName, destinationDir)
