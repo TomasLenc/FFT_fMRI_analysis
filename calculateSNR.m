@@ -10,7 +10,7 @@ function opt = calculateSNR(opt)
     % number of steps per analysed period
     % Set default for RhythmFT and PitchFT analyses
     opt.whichHarmonics = [1, 2];
-    
+
     % select which harmonics to take into account (always include 1st)
     % !!! careful: when we have slower frequency (4 steps per period),
     % don't select even harmonics in teh Block design. They overlap with
@@ -29,17 +29,17 @@ function opt = calculateSNR(opt)
     % setup output directory
     subLabel = opt.subjects{1};
     destinationDir = createOutputDirectory(opt, subLabel);
-    
+
     % want to save each run FFT results
     saveEachRun = 1;
-    
+
     %% let's start
-    
+
     % get mask image
     % use a predefined mask, only calculate voxels within the mask
     % below is same resolution as the functional images
-    maskFileName = opt.funcMask; 
-    
+    maskFileName = opt.funcMask;
+
     if opt.anatMask == 1
         maskFileName = opt.anatMaskFileName;
     end
@@ -47,10 +47,10 @@ function opt = calculateSNR(opt)
     % load the mask
     maskHdr = spm_vol(maskFileName);
     maskImg = spm_read_vols(maskHdr);
-    
-%     % output images
-%     outputHdr = spm_vol(outputImage);
-%     outputImg = spm_read_vols(outputHdr);
+
+    %     % output images
+    %     outputHdr = spm_vol(outputImage);
+    %     outputImg = spm_read_vols(outputHdr);
 
     % get functional image
     % we let SPM figure out what is in this BIDS data set
@@ -58,7 +58,7 @@ function opt = calculateSNR(opt)
 
     % add or count tot run number
     allRunFiles = opt.allFiles;
-    
+
     %% setup parameters for FFT analysis
     % mri.repetition time(TR)
     repetitionTime = 1.75;
@@ -126,28 +126,28 @@ function opt = calculateSNR(opt)
     filtkernXdb = 10 * log10(abs(fft(filtkern, oldN)).^2);
 
     % % plot filter properties (visual check)
-%     figure
-%     plotedge = dsearchn(hz',fcutoff*3);
-%     
-%     subplot(2,2,1)
-%     plot((-order/2:order/2)/fs,filtkern,'k','linew',3)
-%     xlabel('Time (s)')
-%     title('Filter kernel')
-%     
-%     subplot(2,2,2), hold on
-%     plot(frex*fs/2,shape,'r','linew',1)
-%     
-%     plot(hz,filtkernX(1:length(hz)),'k','linew',2)
-%     set(gca,'xlim',[0 fcutoff*3])
-%     xlabel('Frequency (Hz)'), ylabel('Gain')
-%     title('Filter kernel spectrum')
-%     
-%     subplot(2,2,4)
-%     plot(hz,filtkernXdb(1:length(hz)),'k','linew',2)
-%     set(gca,'xlim',[0 fcutoff*3],'ylim',...
-%        [min([filtkernXdb(plotedge) filtkernXdb(plotedge)]) 5])
-%     xlabel('Frequency (Hz)'), ylabel('Gain')
-%     title('Filter kernel spectrum (dB)')
+    %     figure
+    %     plotedge = dsearchn(hz',fcutoff*3);
+    %
+    %     subplot(2,2,1)
+    %     plot((-order/2:order/2)/fs,filtkern,'k','linew',3)
+    %     xlabel('Time (s)')
+    %     title('Filter kernel')
+    %
+    %     subplot(2,2,2), hold on
+    %     plot(frex*fs/2,shape,'r','linew',1)
+    %
+    %     plot(hz,filtkernX(1:length(hz)),'k','linew',2)
+    %     set(gca,'xlim',[0 fcutoff*3])
+    %     xlabel('Frequency (Hz)'), ylabel('Gain')
+    %     title('Filter kernel spectrum')
+    %
+    %     subplot(2,2,4)
+    %     plot(hz,filtkernXdb(1:length(hz)),'k','linew',2)
+    %     set(gca,'xlim',[0 fcutoff*3],'ylim',...
+    %        [min([filtkernXdb(plotedge) filtkernXdb(plotedge)]) 5])
+    %     xlabel('Frequency (Hz)'), ylabel('Gain')
+    %     title('Filter kernel spectrum (dB)')
 
     %% Calculate SNR for each run
     % mypool = gcp('nocreate');
@@ -163,13 +163,13 @@ function opt = calculateSNR(opt)
 
         % choose current BOLD file
         boldFile = allRunFiles{iRun};
-        [~,boldFileName,~] = fileparts(boldFile);
-        
+        [~, boldFileName, ~] = fileparts(boldFile);
+
         % read/load bold file
         boldHdr = spm_vol(boldFile);
-        boldImg = spm_read_vols(boldHdr); 
+        boldImg = spm_read_vols(boldHdr);
         boldImg = reshape(boldImg, [size(boldImg, 1) * size(boldImg, 2) * ...
-                                  size(boldImg, 3) size(boldImg, 4)]);
+                                    size(boldImg, 3) size(boldImg, 4)]);
 
         % find cyclic volume
         totalVol = length(boldHdr);
@@ -177,46 +177,45 @@ function opt = calculateSNR(opt)
 
         % remove the first 4 volumes, using this step to make the face stimulus onset at 0
         boldImg = boldImg(maskImg == 1, (onsetDelay + 1):(sequenceVol + onsetDelay));
-        boldImg = boldImg';   
-        
+        boldImg = boldImg';
+
         % control here, e.g. is the mask is bigger than the func img, we
         % would have zeros so we are getting rid off them below
-        
+
         % save non-zero mask and reallocate the martix
         if iRun == 1
-            
+
             % Getting rid off zeros
             zeroMask = all(boldImg == 0, 1);
-            boldImg = boldImg(:,~zeroMask);
-            nVox = size(boldImg,2); 
-        
+            boldImg = boldImg(:, ~zeroMask);
+            nVox = size(boldImg, 2);
+
             % remove also the mask' image zeros
-            removeMaskZeros(maskFileName, boldFile)
-            
+            removeMaskZeros(maskFileName, boldFile);
+
             % reload the mask
             maskHdr = spm_vol(maskFileName);
             maskImg = spm_read_vols(maskHdr);
-            
+
             % reload the new mask
-            
+
             % reallocate with the correct voxel size
             allRunsBoldRaw = nan(N, nVox, nRuns);
             allRunsBoldDT = nan(N, nVox, nRuns);
-        end   
-        
+        end
+
         % filter and interpolate
         boldResampled = zeros(N, size(boldImg, 2));
-        
+
         % interpolate (resample)
         timeVector = linspace(1, oldN, N);
         oldTimeVector = 1:oldN;
-        
 
         for iVoxel = 1:size(boldImg, 2)
             % low-pass filter
             boldFilter = filtfilt(filtkern, 1, boldImg(:, iVoxel));
             % interpolate
-            boldResampled(:, iVoxel) = interp1(oldTimeVector, boldFilter,...
+            boldResampled(:, iVoxel) = interp1(oldTimeVector, boldFilter, ...
                                                timeVector, 'spline');
         end
 
@@ -245,12 +244,12 @@ function opt = calculateSNR(opt)
 
         % save the output
         if saveEachRun == 1
-            
+
             fprintf('Saving each run output... \n');
-        
+
             newFileName = ['SNR_', boldFileName, '.nii'];
             writeMap(targetZ, maskHdr, maskImg, newFileName, destinationDir);
-%             writeMap(targetZ, maskHdr.fname, newFileName, destinationDir);
+            %             writeMap(targetZ, maskHdr.fname, newFileName, destinationDir);
 
         end
     end
@@ -259,8 +258,8 @@ function opt = calculateSNR(opt)
     fprintf('Calculating average... \n');
 
     % rename the file name for saving
-    boldFileName = regexprep(boldFileName, 'run-(\d*)_','');
-    
+    boldFileName = regexprep(boldFileName, 'run-(\d*)_', '');
+
     % average runs in the time domain
     avgBold = mean(allRunsBoldDT, 3);
     avgRawBold = mean(allRunsBoldRaw, 3);
@@ -303,8 +302,8 @@ function opt = calculateSNR(opt)
     % save map as nii
     newFileName = ['AvgZHarmonics_', boldFileName, '.nii'];
     writeMap(targetHarmonicsZ, maskHdr, maskImg, newFileName, destinationDir);
-%     writeMap(targetHarmonicsZ, maskHdr.fname, newFileName, destinationDir);
-    
+    %     writeMap(targetHarmonicsZ, maskHdr.fname, newFileName, destinationDir);
+
     % plot best voxels
     [~, idxSorted] = sort(targetHarmonicsZ, 'descend');
     idxSorted(isnan(targetHarmonicsZ(idxSorted))) = [];
@@ -362,20 +361,20 @@ function opt = calculateSNR(opt)
     % save map as nii
     newFileName = ['AvgRatioTarget_', boldFileName, '.nii'];
     writeMap(targetSNRRatio, maskHdr, maskImg, newFileName, destinationDir);
-   % writeMap(targetSNRRatio, maskHdr.fname, newFileName, destinationDir);
+    % writeMap(targetSNRRatio, maskHdr.fname, newFileName, destinationDir);
 
 end
 
 function writeMap(data2write, maskHdr, maskImg, newFileName, destinationDir)
-    
+
     % create template hdr to be saved
     zmapHdr = maskHdr;
-    zmapHdr.fname = spm_file(zmapHdr.fname,'path',destinationDir);
-    zmapHdr.fname = spm_file(zmapHdr.fname,'filename',newFileName);
+    zmapHdr.fname = spm_file(zmapHdr.fname, 'path', destinationDir);
+    zmapHdr.fname = spm_file(zmapHdr.fname, 'filename', newFileName);
 
     % get dimensions & allocate 3-D img
     zmapImg = zeros(zmapHdr.dim);
-    
+
     % get mask index for non-zero values &
     % assign z-scores from 1-D to their correcponding 3-D location
     zmapImg(find(maskImg > 0)) = data2write; %#ok<FNDSB>
@@ -390,43 +389,43 @@ function removeMaskZeros(maskFileName, boldFile)
     % read mask image
     maskHdr = spm_vol(maskFileName);
     maskImg = spm_read_vols(maskHdr);
-    
+
     % read bold image
     boldHdr = spm_vol(boldFile);
     boldImg = spm_read_vols(boldHdr);
-    
-    %take 1 image from whole run
-    boldImg1 = boldImg(:,:,:,1);
-    
+
+    % take 1 image from whole run
+    boldImg1 = boldImg(:, :, :, 1);
+
     % make bold image binary
-    boldImg1(boldImg1 ~=0) = 1;    
-    
+    boldImg1(boldImg1 ~= 0) = 1;
+
     % overlap (temp = bold + mask )
     temp = maskImg + boldImg1;
-    temp(temp ==1) = 0;
-    temp(temp==2) = 1;
-    
+    temp(temp == 1) = 0;
+    temp(temp == 2) = 1;
+
     % save new mask
     spm_write_vol(maskHdr, temp);
 
 end
 
 % function writeMap(data2write, maskFileName, newFileName, destinationDir)
-% 
-% 
-%     % write map of extracted values 
+%
+%
+%     % write map of extracted values
 %     mask_new = load_untouch_nii(maskFileName);
-%     
+%
 %     zmap3Dmask = zeros(size(mask_new.img));
 %     zmap3Dmask(find(mask_new.img > 0)) = data2write;
-%     
+%
 %     new_nii = make_nii(zmap3Dmask);
 %     new_nii.hdr = mask_new.hdr;
-%     
+%
 %     dims = size(mask_new.img);
 %     new_nii.hdr.dime.dim(2:5) = [dims(1) dims(2) dims(3) 1];
-% 
-% 
+%
+%
 %     save_nii(new_nii, fullfile(destinationDir,newFileName));
-% 
+%
 % end

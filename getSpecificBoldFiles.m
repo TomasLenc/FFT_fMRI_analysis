@@ -7,7 +7,6 @@ function opt = getSpecificBoldFiles(opt, subLabel)
     % we let SPM figure out what is in this BIDS data set
     [BIDS, opt] = getData(opt);
 
-
     %% Get functional files for FFT
     % identify sessions for this subject
     [sessions, nbSessions] = getInfo(BIDS, subLabel, opt, 'Sessions');
