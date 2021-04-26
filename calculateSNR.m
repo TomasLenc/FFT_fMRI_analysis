@@ -33,9 +33,6 @@ function opt = calculateSNR(opt)
         
         destinationDir = createOutputDirectory(opt, subLabel);
 
-        % want to save each run FFT results
-        saveEachRun = 1;
-
         %% let's start
 
         % get mask image
@@ -246,7 +243,7 @@ function opt = calculateSNR(opt)
             allRunsBoldDT(:, :, iRun) = boldDetrend;
 
             % save the output
-            if saveEachRun == 1
+            if opt.saveEachRun == 1
 
                 fprintf('Saving each run output... \n');
 
