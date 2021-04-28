@@ -38,7 +38,7 @@ function opt = calculateSNR(opt)
         % get mask image
         % use a predefined mask, only calculate voxels within the mask
         % below is same resolution as the functional images
-        maskFileName = opt.funcMask;
+        maskFileName = opt.funcMask{iSub};
 
         if opt.anatMask == 1
             maskFileName = opt.anatMaskFileName;
@@ -179,10 +179,10 @@ function opt = calculateSNR(opt)
             boldImg = boldImg(maskImg == 1, (onsetDelay + 1):(sequenceVol + onsetDelay));
             boldImg = boldImg';
 
-            % control here, e.g. is the mask is bigger than the func img, we
+            % control here, e.g. if the mask is bigger than the func img, we
             % would have zeros so we are getting rid off them below
 
-            % save non-zero mask and reallocate the martix
+            % save mask in the same size as boldImg and reallocate the matrix
             if iRun == 1
 
                 % Getting rid off zeros
@@ -230,15 +230,6 @@ function opt = calculateSNR(opt)
             % remove linear trend
             boldDetrend = detrend(boldResampled);
 
-            % run FFT
-            [targetZ, cfg, ~] = calculateFourier(boldDetrend, boldResampled, cfg);
-
-            %     % unused parameters for now
-            %     targetPhase = cfg.targetPhase;
-            %     targetSNRsigned = cfg.targetSNRsigned;
-            %     tSNR = cfg.tSNR;
-            %     %
-
             allRunsBoldRaw(:, :, iRun) = boldResampled;
             allRunsBoldDT(:, :, iRun) = boldDetrend;
 
@@ -246,10 +237,19 @@ function opt = calculateSNR(opt)
             if opt.saveEachRun == 1
 
                 fprintf('Saving each run output... \n');
+                
+                % run FFT
+                [targetZ, cfg, ~] = calculateFourier(boldDetrend, boldResampled, cfg);
+
+                %     % unused parameters for now
+                %     targetPhase = cfg.targetPhase;
+                %     targetSNRsigned = cfg.targetSNRsigned;
+                %     tSNR = cfg.tSNR;
+                %     %
 
                 newFileName = ['SNR_', boldFileName, '.nii'];
                 writeMap(targetZ, maskHdr, maskImg, newFileName, destinationDir);
-                %             writeMap(targetZ, maskHdr.fname, newFileName, destinationDir);
+                % writeMap(targetZ, maskHdr.fname, newFileName, destinationDir);
 
             end
         end
@@ -271,9 +271,97 @@ function opt = calculateSNR(opt)
 
         % save map as nii
         newFileName = ['AvgZTarget_', boldFileName, '.nii'];
-        writeMap(AvrZTarget, maskHdr, maskImg, newFileName, destinationDir);
-        %     writeMap(AvrZTarget, maskHdr.fname, newFileName, destinationDir);
+        zmapImg = writeMap(AvrZTarget, maskHdr, maskImg, newFileName, destinationDir);
+        % writeMap(AvrZTarget, maskHdr.fname, newFileName, destinationDir);
+        
+        %% get best N voxels coordinate
+        % Gets the Voxel space to World space transformation matrix of this image
+        transformationMatrix = boldHdr(1).mat;
+        
+        % number of top N voxels:
+        voxelNbToPlot = 10;
+        
+        % sort the z-value 1D map to find max N voxels to plot
+        [zValues, idxSorted] = sort(zmapImg(:), 'descend');
+        
+        for iVox = 1:voxelNbToPlot
+            
+            % convert linear indices into 3D indices
+            [x, y, z] = ind2sub(size(zmapImg),idxSorted(iVox));
+            
+            % have to take the transpose (') of the voxel indices vector
+            transposeVoxelSubscripts = [x; y; z]; 
 
+            % pad it with an extra one to be able to multiply it with the tranformation matrix.
+            worldSpaceXyz = transformationMatrix * [transposeVoxelSubscripts ; 1];
+
+            % Only the three first value of this vector are of interest to us
+            worldSpaceXyz = worldSpaceXyz(1:3);
+
+%         %% an example from vx script to MNI space
+%         transformationMatrix = boldHdr(1).mat;
+%         MNIcoord = cor2mni([x,y,z], transformationMatrix);
+
+            % save into a struct
+            coord.voxelSpaceXyz(iVox,1) = x;
+            coord.voxelSpaceXyz(iVox,2) = y;
+            coord.voxelSpaceXyz(iVox,3) = z;
+            coord.index(iVox) = idxSorted(iVox);
+            coord.worldSpaceXyz(iVox,1) = worldSpaceXyz(1); 
+            coord.worldSpaceXyz(iVox,2) = worldSpaceXyz(2);
+            coord.worldSpaceXyz(iVox,3) = worldSpaceXyz(3);
+            coord.zValue(iVox) = zValues(iVox);
+            
+            % to call the vx coordinate:
+            % coord.voxelSpaceXyz(iVox,:) = [25 45 39]
+            
+        end
+        
+%         % vector array structure
+%             coord(iVox).voxelSpace.x = x;
+%             coord(iVox).voxelSpace.y = y;
+%             coord(iVox).voxelSpace.z = z;
+%             coord(iVox).index = idxSorted(iVox);
+%             coord(iVox).worldSpace.x = worldSpaceXyz(1); 
+%             coord(iVox).worldSpace.y = worldSpaceXyz(2);
+%             coord(iVox).worldSpace.z = worldSpaceXyz(3);
+%             coord(iVox).zValue = zValues(iVox);
+            
+
+        %% Getting the world space coordinate of a given voxel
+        VoxelSubscripts = [x y z]; 
+        
+        % Gets the Voxel space to World space transformation matrix of this image
+        transformationMatrix = boldHdr(1).mat;
+
+        % The dimension of each voxel are the 3 first values of the main diagonal of this matrix
+        % Get the value along the main diagonal of the matrix and stores it in a
+        % temporary variable
+        temp = diag(transformationMatrix);
+        
+        % We have to take the transpose (') of the voxel indices vector and pad it with an
+        % extra one to be able to multiply it with the tranformation matrix.
+        temp = [VoxelSubscripts' ; 1];
+        worldSpaceXyz = transformationMatrix * temp;
+        
+        % Only the three first value of this vector are of interest to us
+        worldSpaceXyz = worldSpaceXyz(1:3);
+        
+        coord(iVox).voxelSpace.x = x;
+        coord(iVox).voxelSpace.y = y;
+        coord(iVox).voxelSpace.z = z;
+        coord(iVox).index = idxSorted(iVox);
+        coord(iVox).worldSpace.x = worldSpaceXyz(1); 
+        coord(iVox).worldSpace.y = worldSpaceXyz(2);
+        coord(iVox).worldSpace.z = worldSpaceXyz(3);
+        coord(iVox).zValue = zValues(iVox);
+         
+        % NOTE CHECK WORLD SPACE TRANSFORMATION REALLY IS WORKING?
+        % THEN DELETE THIS PART
+
+
+        
+        %%
         % plot best voxels
         blfun = @(x, y) x - y;
         mXSNRAmp = baselineCorrect(abs(FT), cfg, 'fun', blfun);
@@ -365,7 +453,7 @@ function opt = calculateSNR(opt)
     end
 end
 
-function writeMap(data2write, maskHdr, maskImg, newFileName, destinationDir)
+function zmapImg = writeMap(data2write, maskHdr, maskImg, newFileName, destinationDir)
 
     % create template hdr to be saved
     zmapHdr = maskHdr;
