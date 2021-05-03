@@ -1,5 +1,7 @@
-function f = plotmXBestVox(freq, mX, targetVal, nPlot, idxHarmonics, varargin)
+function f = plotmXBestVox(freq, mX, targetVal, nPlot, idxHarmonics, coord, varargin)
 
+    coord.voxelSpaceXyz 
+    
     % if 1D make it a column vector
     if size(mX, 1) == 1
         mX = mX';
