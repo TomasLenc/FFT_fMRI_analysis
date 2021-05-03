@@ -1,7 +1,6 @@
-function f = plotmXBestVox(freq, mX, targetVal, nPlot, idxHarmonics, coord, varargin)
+function f = plotmXBestVox(freq, mX, targetVal, nPlot, coord, idxHarmonics,  varargin)
 
-    coord.voxelSpaceXyz 
-    
+
     % if 1D make it a column vector
     if size(mX, 1) == 1
         mX = mX';
@@ -57,7 +56,9 @@ function f = plotmXBestVox(freq, mX, targetVal, nPlot, idxHarmonics, coord, vara
             ax.XTickLabel = {};
         end
 
-        title(sprintf('voxel %d', idxSorted(iVox)));
+      %  title(sprintf('voxel coordinate [%d %d %d]', coord.voxelSpaceXyz(iVox,:)));
+        title(sprintf('z=%.2f  vox=[%d %d %d]', targetVal(idxSorted(iVox)), ...
+                          coord.voxelSpaceXyz(iVox,:)))
     end
 
     pnl.de.marginbottom = 10;

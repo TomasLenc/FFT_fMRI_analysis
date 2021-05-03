@@ -272,18 +272,17 @@ function opt = calculateSNR(opt)
         % save map as nii
         newFileName = ['AvgZTarget_', boldFileName, '.nii'];
         zmapImg = writeMap(AvrZTarget, maskHdr, maskImg, newFileName, destinationDir);
-        % writeMap(AvrZTarget, maskHdr.fname, newFileName, destinationDir);
-        
-        
-        voxelNbToPlot = 10;
-        opt.coord = getVoxelCoordinate(boldHdr, zmapImg, voxelNbToPlot);
- 
+
         %%
-        % plot best voxels
+        % calculate amplitude spectra
         blfun = @(x, y) x - y;
         mXSNRAmp = baselineCorrect(abs(FT), cfg, 'fun', blfun);
+        
+        % plot best voxels
+        voxelNbToPlot = 10;
+        coordZ = getVoxelCoordinate(boldHdr, zmapImg, voxelNbToPlot);
         f = plotmXBestVox(freq, mXSNRAmp, AvrZTarget, ...
-                          voxelNbToPlot,opt.coord, cfg.idxHarmonics);
+                          voxelNbToPlot, coordZ, cfg.idxHarmonics);
 
         % save figure
         newFileName = 'AvgZTarget-bestVox_';
@@ -307,19 +306,19 @@ function opt = calculateSNR(opt)
 
         % save map as nii
         newFileName = ['AvgZHarmonics_', boldFileName, '.nii'];
-        writeMap(targetHarmonicsZ, maskHdr, maskImg, newFileName, destinationDir);
-        %     writeMap(targetHarmonicsZ, maskHdr.fname, newFileName, destinationDir);
+        zHarmonicsImg = writeMap(targetHarmonicsZ, maskHdr, maskImg, newFileName, destinationDir);
 
         % plot best voxels
+        coordHarmonics = getVoxelCoordinate(boldHdr, zHarmonicsImg, voxelNbToPlot);
+        
         [~, idxSorted] = sort(targetHarmonicsZ, 'descend');
         idxSorted(isnan(targetHarmonicsZ(idxSorted))) = [];
-        nMax = 10;
 
         f = figure('color', 'white', 'Position', [131 728 1744 140]);
         pnl = panel(f);
-        pnl.pack('h', nMax);
+        pnl.pack('h', voxelNbToPlot);
 
-        for iVox = 1:nMax
+        for iVox = 1:voxelNbToPlot
             mXbest = mXavgHarmonics(:, idxSorted(iVox));
             pnl(iVox).select();
             h = stem(mXbest, ...
@@ -331,8 +330,8 @@ function opt = calculateSNR(opt)
                      'marker', 'none', ...
                      'color', 'r', ...
                      'linew', 4);
-            title(sprintf('z=%.2f  vox=%d', targetHarmonicsZ(idxSorted(iVox)), ...
-                          idxSorted(iVox)));
+            title(sprintf('z=%.2f  vox=[%d %d %d]', targetHarmonicsZ(idxSorted(iVox)), ...
+                          coordHarmonics.voxelSpaceXyz(iVox,:)));
             set(gca, 'xtick', []);
         end
 
@@ -345,7 +344,8 @@ function opt = calculateSNR(opt)
         close(f);
 
         % plot best voxels and save figure
-        f = plotmXBestVox(freq, mXSNRAmp, targetHarmonicsZ, voxelNbToPlot, cfg.idxHarmonics);
+        f = plotmXBestVox(freq, mXSNRAmp, targetHarmonicsZ, ...
+                          voxelNbToPlot, coordHarmonics, cfg.idxHarmonics);
         newFileName = ['AvgZHarmonics-bestVox_', boldFileName, '.fig'];
         saveas(f, fullfile(destinationDir, newFileName));
         close(f);
