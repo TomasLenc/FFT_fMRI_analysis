@@ -249,7 +249,6 @@ function opt = calculateSNR(opt)
 
                 newFileName = ['SNR_', boldFileName, '.nii'];
                 writeMap(targetZ, maskHdr, maskImg, newFileName, destinationDir);
-                % writeMap(targetZ, maskHdr.fname, newFileName, destinationDir);
 
             end
         end
