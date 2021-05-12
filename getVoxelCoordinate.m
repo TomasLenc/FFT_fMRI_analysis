@@ -49,17 +49,6 @@ end
 coord.indexMasked = img3d_to_mask1d(coord.voxelSpaceXyz, maskImg); 
 
 
-%         % vector array structure
-%             coord(iVox).voxelSpace.x = x;
-%             coord(iVox).voxelSpace.y = y;
-%             coord(iVox).voxelSpace.z = z;
-%             coord(iVox).index = idxSorted(iVox);
-%             coord(iVox).worldSpace.x = worldSpaceXyz(1);
-%             coord(iVox).worldSpace.y = worldSpaceXyz(2);
-%             coord(iVox).worldSpace.z = worldSpaceXyz(3);
-%             coord(iVox).zValue = zValues(iVox);
-
-
 % an example is below:
 
 % %% Getting the world space coordinate of a given voxel
@@ -91,7 +80,7 @@ coord.indexMasked = img3d_to_mask1d(coord.voxelSpaceXyz, maskImg);
 % coord(iVox).zValue = zValuesSorted(iVox);
 end
 
-function [idxImg3D,idxImg1D] = mask1d_to_img3d(idxMask1D, maskHdr, maskImg)
+function [idxImg3D,idxImg1D] = mask1d_to_img3d(idxMask1D, maskImg)
     % convert from linearized 1D index of a voxel in masked data to 
     % 3D coordinate index in the original image (before mask was applied) 
     idxImg3D = nan(length(idxMask1D), 3); 
