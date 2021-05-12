@@ -263,26 +263,7 @@ function opt = calculateSNR(opt)
         avgBold = mean(allRunsBoldDT, 3);
         avgRawBold = mean(allRunsBoldRaw, 3);
 
-        % run FFT on average bold
-        [AvgZTarget, cfg, FT] = calculateFourier(avgBold, avgRawBold, cfg);
-
-        % convert from complex FFT output to magnitudes 
-        mX = abs(FT); 
-        
-        % save map as nii
-        newFileName = ['AvgZTarget_', boldFileName, '.nii'];
-        zmapImg = writeMap(AvgZTarget, maskHdr, maskImg, newFileName, destinationDir);
-
-        %% subtraction SNR 
-        % baseline-correct magnitude spectra (subtracting surrounding bins)
-        
-        % define the baseline correction function (we will simply subtract the
-        % mean magnitude at surrounding bins from the signal, i.e. center bin)
-        blfun = @(signal, noise) signal - noise;
-        % go over frequency bins, and apply the function to each bin in the
-        % spectra
-        mXbl = baselineCorrect(mX, cfg, 'fun', blfun);
-        
+        %% run FFT on average bold
         % ----------------------------------------------------------------
         % Zscore at target frequency. 
         % (1) calculate magnitude specta using FFT
@@ -291,11 +272,31 @@ function opt = calculateSNR(opt)
         % (3) extract magnitudes at surrounding frequency bins -> this is noise
         % (4) calculate zscore as (signal-mean(noise)) / std(noise)
         % do this for each voxel and return in array AvgZTarget
+        [AvgZTarget, cfg, FT] = calculateFourier(avgBold, avgRawBold, cfg);
+        
+        % save map as nii
+        newFileName = ['AvgZTarget_', boldFileName, '.nii'];
+        zmapImg = writeMap(AvgZTarget, maskHdr, maskImg, newFileName, destinationDir);
 
+        %% subtraction SNR 
+        % baseline-correct magnitude spectra (subtracting surrounding bins)
+        
+        % convert from complex FFT output to magnitudes 
+        mX = abs(FT); 
+        
+        % define the baseline correction function (we will simply subtract the
+        % mean magnitude at surrounding bins from the signal, i.e. center bin)
+        blfun = @(signal, noise) signal - noise;
+        % go over frequency bins, and apply the function to each bin in the
+        % spectra
+        mXbl = baselineCorrect(mX, cfg, 'fun', blfun);
+        
         % plot best voxels
         voxelNbToPlot = 10;
-        coordZ = getVoxelCoordinate(boldHdr, zmapImg, maskImg, voxelNbToPlot);
-        f = plotmXBestVox(freq, mXbl, coordZ, cfg.idxHarmonics);
+        coordTargetFreq = getVoxelCoordinate(boldHdr, zmapImg, maskImg, voxelNbToPlot);
+        % for a clear representation, does it make sense to use fixed scale
+        % across voxels?
+        f = plotmXBestVox(freq, mXbl, coordTargetFreq, cfg.idxHarmonics);
 
         % save figure
         newFileName = 'AvgZTarget-bestVox_';
@@ -307,7 +308,7 @@ function opt = calculateSNR(opt)
         % Zscore at target frequency and harmonics. We will first pool
         % (average) magnitudes across the different harmonics. To this end, we
         % will cut segments around the target frequency and each harmonic from
-        % the long spectra. We will average these semgnets and from this
+        % the long spectra. We will average these segments and from this
         % avergae, we will extract the zscore (signal vs. noise). 
         
         % cut out segments of frequency bins around each frequency of interest
@@ -336,6 +337,8 @@ function opt = calculateSNR(opt)
         coordHarmonics = getVoxelCoordinate(boldHdr, zHarmonicsImg, maskImg, voxelNbToPlot);
         
         % plot averge segment from the spectra for best voxels
+        % for a clear representation, does it make sense to use fixed scale
+        % across voxels?
         f = plotAvgHarmBestVox(mXavgHarmonics, coordHarmonics); 
         
         % save figure
@@ -344,6 +347,8 @@ function opt = calculateSNR(opt)
         close(f);
 
         % plot whole spectra for best voxels and save figure
+        % the coordinate of best harmonics differ from coord of highest SNR
+        % on target freuency - for Fig1 differs from Fig3
         f = plotmXBestVox(freq, mXbl, coordHarmonics, cfg.idxHarmonics);
         newFileName = ['AvgZHarmonics-bestVox_', boldFileName, '.fig'];
         saveas(f, fullfile(destinationDir, newFileName));
