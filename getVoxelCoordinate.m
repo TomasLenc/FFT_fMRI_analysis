@@ -6,6 +6,9 @@ function [coord] = getVoxelCoordinate(hdr, img, maskImg, voxelNbToPlot)
 % hdr : header of the img
 % number of top N voxels : voxelNbToPlot
 
+% an example call for the vx coordinate:
+% coord.voxelSpaceXyz(iVox,:) = [25 45 39]
+
 % Gets the Voxel space to World space transformation matrix of this image
 transformationMatrix = hdr(1).mat;
 
@@ -40,9 +43,6 @@ for iVox = 1:voxelNbToPlot
     coord.worldSpaceXyz(iVox,3) = worldSpaceXyz(3);
     coord.value(iVox) = valuesSorted(iVox);
     
-    % to call the vx coordinate:
-    % coord.voxelSpaceXyz(iVox,:) = [25 45 39]
-    
 end
 
 % convert to 1D linearized indices on the masked image 
@@ -69,15 +69,7 @@ coord.indexMasked = img3d_to_mask1d(coord.voxelSpaceXyz, maskImg);
 % 
 % % Only the three first value of this vector are of interest to us
 % worldSpaceXyz = worldSpaceXyz(1:3);
-% 
-% coord(iVox).voxelSpace.x = x;
-% coord(iVox).voxelSpace.y = y;
-% coord(iVox).voxelSpace.z = z;
-% coord(iVox).index = idxSorted(iVox);
-% coord(iVox).worldSpace.x = worldSpaceXyz(1);
-% coord(iVox).worldSpace.y = worldSpaceXyz(2);
-% coord(iVox).worldSpace.z = worldSpaceXyz(3);
-% coord(iVox).zValue = zValuesSorted(iVox);
+
 end
 
 function [idxImg3D,idxImg1D] = mask1d_to_img3d(idxMask1D, maskImg)
