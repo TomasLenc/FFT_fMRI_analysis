@@ -26,19 +26,19 @@ function opt = calculateSNR(opt)
         end
     end
 
-    % setup output directory
+    %% let's start
     for iSub = 1:numel(opt.subjects)
 
         subLabel = opt.subjects{iSub};
         
+        % setup output directory
         destinationDir = createOutputDirectory(opt, subLabel);
-
-        %% let's start
 
         % get mask image
         % use a predefined mask, only calculate voxels within the mask
         % below is same resolution as the functional images
         maskFileName = opt.funcMask{iSub};
+        disp(maskFileName)
 
         if opt.anatMask == 1
             maskFileName = opt.anatMaskFileName;
@@ -48,16 +48,13 @@ function opt = calculateSNR(opt)
         maskHdr = spm_vol(maskFileName);
         maskImg = spm_read_vols(maskHdr);
 
-        %     % output images
-        %     outputHdr = spm_vol(outputImage);
-        %     outputImg = spm_read_vols(outputHdr);
-
         % get functional image
         % we let SPM figure out what is in this BIDS data set
         opt = getSpecificBoldFiles(opt, subLabel);
 
         % add or count tot run number
         allRunFiles = opt.allFiles;
+        disp(allRunFiles)
 
         %% setup parameters for FFT analysis
         % mri.repetition time(TR)
