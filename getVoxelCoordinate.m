@@ -15,6 +15,11 @@ transformationMatrix = hdr(1).mat;
 % sort the z-value 1D map to find max N voxels to plot
 [valuesSorted, idxSorted] = sort(img(:), 'descend');
 
+%  control of NaN/zeros
+idxNoNans = ~isnan(valuesSorted);
+valuesSorted = valuesSorted(idxNoNans);
+idxSorted = idxSorted(idxNoNans);
+
 for iVox = 1:voxelNbToPlot
     
     % convert linear indices into 3D indices
