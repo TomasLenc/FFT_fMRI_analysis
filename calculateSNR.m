@@ -37,7 +37,7 @@ function opt = calculateSNR(opt)
         % get mask image
         % use a predefined mask, only calculate voxels within the mask
         % below is same resolution as the functional images
-        maskLabel = opt.maskLabel;
+        maskType = opt.maskType;
         
         maskFileName = opt.funcMask{iSub};
         [maskPath, maskName] = fileparts(maskFileName);
@@ -248,7 +248,7 @@ function opt = calculateSNR(opt)
                 %     tSNR = cfg.tSNR;
                 %     %
 
-                newFileName = [maskLabel,'_SNR_', boldFileName, '.nii'];
+                newFileName = [maskType,'_SNR_', boldFileName, '.nii'];
                 writeMap(targetZ, maskHdr, maskImg, newFileName, destinationDir);
 
             end
@@ -276,9 +276,12 @@ function opt = calculateSNR(opt)
         [AvgZTarget, cfg, FT] = calculateFourier(avgBold, avgRawBold, cfg);
         
         % save map as nii
-        newFileName = [maskLabel, '_AvgZTarget_', boldFileName, '.nii'];
+        newFileName = [maskType, '_AvgZTarget_', boldFileName, '.nii'];
         zmapImg = writeMap(AvgZTarget, maskHdr, maskImg, newFileName, destinationDir);
 
+        % save FT as mat file
+        save(fullfile(destinationDir,[newFileName(1:end-4),'_FT']),'FT');
+        
         %% subtraction SNR 
         % baseline-correct magnitude spectra (subtracting surrounding bins)
         
@@ -300,9 +303,8 @@ function opt = calculateSNR(opt)
         f = plotmXBestVox(freq, mXbl, coordTargetFreq, cfg.idxHarmonics);
 
         % save figure
-        newFileName = 'AvgZTarget-bestVox_';
-        fileName = fullfile(destinationDir, [newFileName, boldFileName, '.fig']);
-        saveas(f, fileName);
+        newFileName = [maskType, 'AvgZTarget-bestVox_', boldFileName, '.fig'];
+        saveas(f, fullfile(destinationDir, newFileName));
         close(f);
 
         % ----------------------------------------------------------------
@@ -332,7 +334,7 @@ function opt = calculateSNR(opt)
         targetHarmonicsZ = (mXavgHarmonics(cfg.binSize + 1, :) - NoiseMean) ./ NoiseSD;
 
         % save map as nii
-        newFileName = [maskLabel, 'AvgZHarmonics_', boldFileName, '.nii'];
+        newFileName = [maskType, 'AvgZHarmonics_', boldFileName, '.nii'];
         zHarmonicsImg = writeMap(targetHarmonicsZ, maskHdr, maskImg, newFileName, destinationDir);
 
         coordHarmonics = getVoxelCoordinate(boldHdr, zHarmonicsImg, maskImg, voxelNbToPlot);
@@ -343,7 +345,7 @@ function opt = calculateSNR(opt)
         f = plotAvgHarmBestVox(mXavgHarmonics, coordHarmonics); 
         
         % save figure
-        newFileName = [maskLabel, 'AvgZHarmonics-bestVoxMean_', boldFileName, '.fig'];
+        newFileName = [maskType, 'AvgZHarmonics-bestVoxMean_', boldFileName, '.fig'];
         saveas(f, fullfile(destinationDir, newFileName));
         close(f);
 
@@ -351,7 +353,7 @@ function opt = calculateSNR(opt)
         % the coordinate of best harmonics differ from coord of highest SNR
         % on target freuency - for Fig1 differs from Fig3
         f = plotmXBestVox(freq, mXbl, coordHarmonics, cfg.idxHarmonics);
-        newFileName = [maskLabel, 'AvgZHarmonics-bestVox_', boldFileName, '.fig'];
+        newFileName = [maskType, 'AvgZHarmonics-bestVox_', boldFileName, '.fig'];
         saveas(f, fullfile(destinationDir, newFileName));
         close(f);
 
@@ -371,7 +373,7 @@ function opt = calculateSNR(opt)
         targetRatio = mXblRatio(cfg.targetFrequency, :);
 
         % save map as nii
-        newFileName = [maskLabel, 'AvgRatioTarget_', boldFileName, '.nii'];
+        newFileName = [maskType, 'AvgRatioTarget_', boldFileName, '.nii'];
         targetRatioImg = writeMap(targetRatio, maskHdr, maskImg, newFileName, destinationDir);
 
         % plot best voxels
@@ -380,7 +382,7 @@ function opt = calculateSNR(opt)
         f = plotmXBestVox(freq, mXblRatio, coordRatio, cfg.idxHarmonics, 'ratio');
         
         % save figure
-        newFileName = [maskLabel, 'AvgRatioTarget-bestVox_', boldFileName, '.fig'];
+        newFileName = [maskType, 'AvgRatioTarget-bestVox_', boldFileName, '.fig'];
         saveas(f, fullfile(destinationDir, newFileName));
         close(f);
 
