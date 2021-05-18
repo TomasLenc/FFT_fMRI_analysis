@@ -77,7 +77,7 @@ end
 % Empty matrix of 4 dimensions (first 3 dimensions are the brain image,
 % the fourth dimention is the subject number)
 z = [];
-
+x = [];
 % first subject Number
 iSub = 1;
 
@@ -93,8 +93,13 @@ while iSub <= numel(opt.subjects)
     % concatenate each subject to the 4th dimension
     z = cat(4, z, img);
     
-    FT = load(ftFileFolder{iSub});
+%     % load FT and take abs value for magnitude
+%     load(ftFileFolder{iSub});
+%     mX = abs(FT);
+%     % concatenate each subject to the 3rd dimension
+%     x = cat(3,x,mX);
     
+
     % increase the counter
     iSub = iSub + 1;
 end
