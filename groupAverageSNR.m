@@ -86,7 +86,7 @@ end
 % Empty matrix of 4 dimensions (first 3 dimensions are the brain image,
 % the fourth dimention is the subject number)
 z = [];
-zratio = [];
+% zratio = [];
 
 % first subject Number
 iSub = 1;
@@ -103,14 +103,14 @@ while iSub <= numel(opt.subjects)
     % concatenate each subject to the 4th dimension
     z = cat(4, z, img);
     
-    % load the average ratio
-    hdrRatio = spm_vol(ratioFileFolder{iSub});
-    imgRatio = spm_read_vols(hdrRatio);
-    
-    fprintf('Loading of Map %.0f finished. \n', iSub);
-
-    % concatenate each subject to the 4th dimension
-    y = cat(4, y, imgRatio);
+%     % load the average ratio
+%     hdrRatio = spm_vol(ratioFileFolder{iSub});
+%     imgRatio = spm_read_vols(hdrRatio);
+%     
+%     fprintf('Loading of Map %.0f finished. \n', iSub);
+% 
+%     % concatenate each subject to the 4th dimension
+%     zratio = cat(4, zratio, imgRatio);
 
     % increase the counter
     iSub = iSub + 1;
@@ -121,11 +121,11 @@ end
 % Calculate mean of each voxel across subjects (4th dimension)
 means = [];
 means = mean(z, 4);
-meansRatio = mean(y, 4);
+% meansRatio = mean(zratio, 4);
 
 adjustMeanImg = means ./(sqrt(numel(opt.subjects)));
 meanImg = means;
-meanRatioImg = meansRatio;
+% meanRatioImg = meansRatio;
 
 meanHdr = hdr;
 
@@ -155,12 +155,12 @@ adjustMeanHdr.fname = spm_file(adjustMeanHdr.fname, 'filename', newFileName);
 spm_write_vol(adjustMeanHdr, adjustMeanImg);
 
 
-% save ratio
-meanRatioHdr = meanHdr;
-newFileName = [maskType, '_AvgRatio_subNb-', num2str(numel(opt.subjects)), '.nii'];
-adjustMeanHdr.fname = spm_file(adjustMeanHdr.fname, 'filename', newFileName);
-
-% save result as .nii file
-spm_write_vol(meanRatioHdr, meanRatioImg);
+% % save ratio
+% meanRatioHdr = meanHdr;
+% newFileName = [maskType, '_AvgRatio_subNb-', num2str(numel(opt.subjects)), '.nii'];
+% meanRatioHdr.fname = spm_file(meanRatioHdr.fname, 'filename', newFileName);
+% 
+% % save result as .nii file
+% spm_write_vol(meanRatioHdr, meanRatioImg);
 
 end
