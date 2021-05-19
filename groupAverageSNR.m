@@ -46,20 +46,28 @@ for iSub = 1:numel(opt.subjects)
     boldFileName = regexprep(boldFileName, 'run-(\d*)_', '');
     
     
+    
+if strcmpi(opt.taskName, 'RhythmBlock')
+    
     % get Target nii files
-    % whole-brain_AvgZTarget_s2wuasub-001_ses-001_task-PitchFT_bold.nii
+    avgZFileName = ['AvgZTarget_', boldFileName, '.nii'];
+    
+    % get ratio target
+    ratioFileName = ['AvgRatioTarget_', boldFileName, '.nii'];
+else
+    
+    % get Target nii files
     avgZFileName = [maskType, '_AvgZTarget_', boldFileName, '.nii'];
-    avgZFileFolder{iSub} = fullfile(inputDir,avgZFileName);
+
+    % get ratio target
+    ratioFileName = [maskType, 'AvgRatioTarget_', boldFileName, '.nii'];
     
-    % get Ratio nii
-    % whole-brainAvgRatioTarget_s2wuasub-001_ses-001_task-PitchFT_bold
-    
-    
-    % get .mat FT files
-    % whole-brain_AvgZTarget_s2wuasub-001_ses-001_task-PitchFT_bold_FT.mat
-    ftFileName = [avgZFileName(1:end-4),'_FT', '.mat'];
-    ftFileFolder{iSub} = fullfile(inputDir, ftFileName);
-    
+end
+
+% keep these names/.nii files
+avgZFileFolder{iSub} = fullfile(inputDir,avgZFileName);
+ratioFileFolder{iSub} = fullfile(inputDir,ratioFileName);
+
 end
 
 disp('Nii Files:');
@@ -69,36 +77,40 @@ end
 
 fprintf(' \n NumSubjects: %i  \n\n', numel(opt.subjects));
 
-disp('FT Files:');
-for iFile = 1:length(ftFileFolder)
-    disp([ftFileFolder{iFile}]);
+disp('Nii Files:');
+for iFile = 1:length(ratioFileFolder)
+    disp([ratioFileFolder{iFile}]);
 end
+
 
 % Empty matrix of 4 dimensions (first 3 dimensions are the brain image,
 % the fourth dimention is the subject number)
 z = [];
-x = [];
+zratio = [];
+
 % first subject Number
 iSub = 1;
 
 % loop for each subject
 while iSub <= numel(opt.subjects)
     
-    % load the searchlight map
+    % load the average z-score of target frequency
     hdr = spm_vol(avgZFileFolder{iSub});
     img = spm_read_vols(hdr);
     
     fprintf('Loading of Map %.0f finished. \n', iSub);
-    
+
     % concatenate each subject to the 4th dimension
     z = cat(4, z, img);
     
-%     % load FT and take abs value for magnitude
-%     load(ftFileFolder{iSub});
-%     mX = abs(FT);
-%     % concatenate each subject to the 3rd dimension
-%     x = cat(3,x,mX);
+    % load the average ratio
+    hdrRatio = spm_vol(ratioFileFolder{iSub});
+    imgRatio = spm_read_vols(hdrRatio);
     
+    fprintf('Loading of Map %.0f finished. \n', iSub);
+
+    % concatenate each subject to the 4th dimension
+    y = cat(4, y, imgRatio);
 
     % increase the counter
     iSub = iSub + 1;
@@ -109,10 +121,14 @@ end
 % Calculate mean of each voxel across subjects (4th dimension)
 means = [];
 means = mean(z, 4);
+meansRatio = mean(y, 4);
+
 adjustMeanImg = means ./(sqrt(numel(opt.subjects)));
 meanImg = means;
+meanRatioImg = meansRatio;
 
 meanHdr = hdr;
+
 
 newFolderToSave = fullfile(destinationDir,folder);
 if ~exist(newFolderToSave,'dir')
@@ -131,7 +147,7 @@ spm_write_vol(meanHdr, meanImg);
 % adjusted mean map
 % The averaged z-scores are no longer from a standard normal distribution. 
 % Instead, they have a standard deviation of 1??n (n = numSubjects).
-adjustMeanHdr = hdr;
+adjustMeanHdr = meanHdr;
 newFileName = [maskType, '_AdjustAvgZTarget_subNb-', num2str(numel(opt.subjects)), '.nii'];
 adjustMeanHdr.fname = spm_file(adjustMeanHdr.fname, 'filename', newFileName);
 
@@ -139,44 +155,12 @@ adjustMeanHdr.fname = spm_file(adjustMeanHdr.fname, 'filename', newFileName);
 spm_write_vol(adjustMeanHdr, adjustMeanImg);
 
 
-% %% setup parameters for FFT analysis
-% % mri.repetition time(TR)
-% repetitionTime = 1.75;
-% 
-% % repetition of steps/categA
-% patternDuration     = 12 * 0.190;
-% segmentDuration     = 4 * patternDuration;
-% stepDuration        = opt.nStepsPerPeriod * segmentDuration;
-% 
-% % Number of vol before/after the rhythmic sequence (exp) are presented
-% onsetDelay = 2;
-% endDelay = 4;
-% 
-% % use neighbouring 4 bins as noise frequencies
-% cfg.binSize = 4;
-% cfg.gap = 1;
-% 
-% N = 104; % after resampling
-% 
-% % calculate frequencies
-% oddballFreq = 1 / stepDuration;
-% oldFs =  1 / repetitionTime;
-% fs = 1 / (182.4 / N);
-% 
-% % frequencies
-% freq = fs / 2 * linspace(0, 1, N / 2 + 1);
-% 
-% % target frequency (this is a bad name, because it's a freq. bin INDEX)
-% cfg.targetFrequency = round(N * oddballFreq / fs + 1);
-% 
-% % harmonics of the target frequency and their bin indices
-% cfg.harmonics = freq(cfg.targetFrequency) * opt.whichHarmonics;
-% cfg.idxHarmonics = dsearchn(freq', cfg.harmonics');
-% 
-% % number of bins for phase histogram
-% cfg.histBin = 20;
-% 
-% % threshold for choosing voxels for the phase distribution analysis
-% cfg.thresh = 4;
+% save ratio
+meanRatioHdr = meanHdr;
+newFileName = [maskType, '_AvgRatio_subNb-', num2str(numel(opt.subjects)), '.nii'];
+adjustMeanHdr.fname = spm_file(adjustMeanHdr.fname, 'filename', newFileName);
+
+% save result as .nii file
+spm_write_vol(meanRatioHdr, meanRatioImg);
 
 end
