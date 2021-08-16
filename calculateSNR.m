@@ -13,12 +13,12 @@ function opt = calculateSNR(opt)
 
     % select which harmonics to take into account (always include 1st)
     % !!! careful: when we have slower frequency (4 steps per period),
-    % don't select even harmonics in teh Block design. They overlap with
+    % don't select even harmonics in the Block design. They overlap with
     % the sound-silence frequency (2 steps per period) !!!
     % Block step 4 use [1,3]
     % Block step 2 use [1,2]
     % FT step 4 use [1,2]
-    if strcmpi(opt.taskName, 'RhythmBlock')
+    if strcmpi(opt.taskName, 'RhythmBlock') && strcmpi(opt.taskName, 'Nonmetric')
         if opt.nStepsPerPeriod == 2
             opt.whichHarmonics = [1, 2];
         elseif opt.nStepsPerPeriod == 4
