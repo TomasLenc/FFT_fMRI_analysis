@@ -47,14 +47,14 @@ for iSub = 1:numel(opt.subjects)
     
     
     
-if strcmpi(opt.taskName, 'RhythmBlock')
-    
-    % get Target nii files
-    avgZFileName = ['AvgZTarget_', boldFileName, '.nii'];
-    
-    % get ratio target
-    ratioFileName = ['AvgRatioTarget_', boldFileName, '.nii'];
-else
+% if strcmpi(opt.taskName, 'RhythmBlock') %% && iSub < 12
+%     
+%     % get Target nii files
+%     avgZFileName = ['AvgZTarget_', boldFileName, '.nii'];
+%     
+%     % get ratio target
+%     ratioFileName = ['AvgRatioTarget_', boldFileName, '.nii'];
+% else
     
     % get Target nii files
     avgZFileName = [maskType, '_AvgZTarget_', boldFileName, '.nii'];
@@ -62,7 +62,7 @@ else
     % get ratio target
     ratioFileName = [maskType, 'AvgRatioTarget_', boldFileName, '.nii'];
     
-end
+% end
 
 % keep these names/.nii files
 avgZFileFolder{iSub} = fullfile(inputDir,avgZFileName);
