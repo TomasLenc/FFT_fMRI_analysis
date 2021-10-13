@@ -1,166 +1,160 @@
 function opt = groupAverageSNR(opt)
 
-%% set up experiment related info
+    %% set up experiment related info
 
-% number of steps per analysed period
-% Set default for RhythmFT and PitchFT analyses
-opt.whichHarmonics = [1, 2];
+    % number of steps per analysed period
+    % Set default for RhythmFT and PitchFT analyses
+    opt.whichHarmonics = [1, 2];
 
-% select which harmonics to take into account (always include 1st)
-% !!! careful: when we have slower frequency (4 steps per period),
-% don't select even harmonics in teh Block design. They overlap with
-% the sound-silence frequency (2 steps per period) !!!
-% Block step 4 use [1,3]
-% Block step 2 use [1,2]
-% FT step 4 use [1,2]
-if strcmpi(opt.taskName, 'RhythmBlock')
-    if opt.nStepsPerPeriod == 2
-        opt.whichHarmonics = [1, 2];
-    elseif opt.nStepsPerPeriod == 4
-        opt.whichHarmonics = [1, 3];
+    % select which harmonics to take into account (always include 1st)
+    % !!! careful: when we have slower frequency (4 steps per period),
+    % don't select even harmonics in teh Block design. They overlap with
+    % the sound-silence frequency (2 steps per period) !!!
+    % Block step 4 use [1,3]
+    % Block step 2 use [1,2]
+    % FT step 4 use [1,2]
+    if strcmpi(opt.taskName, 'RhythmBlock')
+        if opt.nStepsPerPeriod == 2
+            opt.whichHarmonics = [1, 2];
+        elseif opt.nStepsPerPeriod == 4
+            opt.whichHarmonics = [1, 3];
+        end
     end
-end
 
-% setup output directory
-fftDir = fullfile(opt.derivativesDir, '..', 'rnb_fft');
-destinationDir = fullfile(fftDir, 'group');
+    % setup output directory
+    fftDir = fullfile(opt.derivativesDir, '..', 'rnb_fft');
+    destinationDir = fullfile(fftDir, 'group');
 
-% get mask image
-% use a predefined mask, only calculate voxels within the mask
-% below is same resolution as the functional images
-maskType = opt.maskType;
+    % get mask image
+    % use a predefined mask, only calculate voxels within the mask
+    % below is same resolution as the functional images
+    maskType = opt.maskType;
 
-%% let's start
-for iSub = 1:numel(opt.subjects)
-    
-    %get subject label
-    subLabel = opt.subjects{iSub};
-    
-    % input directory
-    inputDir = createOutputDirectory(opt, subLabel);
-    [~,folder] = fileparts(inputDir);
-    
-    % input midfile name
-    opt = getSpecificBoldFiles(opt, subLabel);
-    [~, boldFileName, ~] = fileparts(opt.allFiles{1});
-    boldFileName = regexprep(boldFileName, 'run-(\d*)_', '');
-    
-    
-    
-if strcmpi(opt.taskName, 'RhythmBlock')
-    
-    % get Target nii files
-    avgZFileName = ['AvgZTarget_', boldFileName, '.nii'];
-    
-    % get ratio target
-    ratioFileName = ['AvgRatioTarget_', boldFileName, '.nii'];
-else
-    
-    % get Target nii files
-    avgZFileName = [maskType, '_AvgZTarget_', boldFileName, '.nii'];
+    %% let's start
+    for iSub = 1:numel(opt.subjects)
 
-    % get ratio target
-    ratioFileName = [maskType, 'AvgRatioTarget_', boldFileName, '.nii'];
-    
-end
+        % get subject label
+        subLabel = opt.subjects{iSub};
 
-% keep these names/.nii files
-avgZFileFolder{iSub} = fullfile(inputDir,avgZFileName);
-ratioFileFolder{iSub} = fullfile(inputDir,ratioFileName);
+        % input directory
+        inputDir = createOutputDirectory(opt, subLabel);
+        [~, folder] = fileparts(inputDir);
 
-end
+        % input midfile name
+        opt = getSpecificBoldFiles(opt, subLabel);
+        [~, boldFileName, ~] = fileparts(opt.allFiles{1});
+        boldFileName = regexprep(boldFileName, 'run-(\d*)_', '');
 
-disp('Nii Files:');
-for iFile = 1:length(avgZFileFolder)
-    disp([avgZFileFolder{iFile}]);
-end
+        if strcmpi(opt.taskName, 'RhythmBlock')
 
-fprintf(' \n NumSubjects: %i  \n\n', numel(opt.subjects));
+            % get Target nii files
+            avgZFileName = ['AvgZTarget_', boldFileName, '.nii'];
 
-disp('Nii Files:');
-for iFile = 1:length(ratioFileFolder)
-    disp([ratioFileFolder{iFile}]);
-end
+            % get ratio target
+            ratioFileName = ['AvgRatioTarget_', boldFileName, '.nii'];
+        else
 
+            % get Target nii files
+            avgZFileName = [maskType, '_AvgZTarget_', boldFileName, '.nii'];
 
-% Empty matrix of 4 dimensions (first 3 dimensions are the brain image,
-% the fourth dimention is the subject number)
-z = [];
-% zratio = [];
+            % get ratio target
+            ratioFileName = [maskType, 'AvgRatioTarget_', boldFileName, '.nii'];
 
-% first subject Number
-iSub = 1;
+        end
 
-% loop for each subject
-while iSub <= numel(opt.subjects)
-    
-    % load the average z-score of target frequency
-    hdr = spm_vol(avgZFileFolder{iSub});
-    img = spm_read_vols(hdr);
-    
-    fprintf('Loading of Map %.0f finished. \n', iSub);
+        % keep these names/.nii files
+        avgZFileFolder{iSub} = fullfile(inputDir, avgZFileName);
+        ratioFileFolder{iSub} = fullfile(inputDir, ratioFileName);
 
-    % concatenate each subject to the 4th dimension
-    z = cat(4, z, img);
-    
-%     % load the average ratio
-%     hdrRatio = spm_vol(ratioFileFolder{iSub});
-%     imgRatio = spm_read_vols(hdrRatio);
-%     
-%     fprintf('Loading of Map %.0f finished. \n', iSub);
-% 
-%     % concatenate each subject to the 4th dimension
-%     zratio = cat(4, zratio, imgRatio);
+    end
 
-    % increase the counter
-    iSub = iSub + 1;
-end
+    disp('Nii Files:');
+    for iFile = 1:length(avgZFileFolder)
+        disp([avgZFileFolder{iFile}]);
+    end
 
-%% Mean Accuracy
-% calcuate mean accuracy maps
-% Calculate mean of each voxel across subjects (4th dimension)
-means = [];
-means = mean(z, 4);
-% meansRatio = mean(zratio, 4);
+    fprintf(' \n NumSubjects: %i  \n\n', numel(opt.subjects));
 
-adjustMeanImg = means ./(sqrt(numel(opt.subjects)));
-meanImg = means;
-% meanRatioImg = meansRatio;
+    disp('Nii Files:');
+    for iFile = 1:length(ratioFileFolder)
+        disp([ratioFileFolder{iFile}]);
+    end
 
-meanHdr = hdr;
+    % Empty matrix of 4 dimensions (first 3 dimensions are the brain image,
+    % the fourth dimention is the subject number)
+    z = [];
+    % zratio = [];
 
+    % first subject Number
+    iSub = 1;
 
-newFolderToSave = fullfile(destinationDir,folder);
-if ~exist(newFolderToSave,'dir')
-    mkdir(newFolderToSave);
-end
+    % loop for each subject
+    while iSub <= numel(opt.subjects)
 
-newFileName = [maskType, '_AvgZTarget_subNb-', num2str(numel(opt.subjects)), '.nii'];
+        % load the average z-score of target frequency
+        hdr = spm_vol(avgZFileFolder{iSub});
+        img = spm_read_vols(hdr);
 
-meanHdr.fname = spm_file(meanHdr.fname, 'path', newFolderToSave);
-meanHdr.fname = spm_file(meanHdr.fname, 'filename', newFileName);
+        fprintf('Loading of Map %.0f finished. \n', iSub);
 
-% save result as .nii file
-spm_write_vol(meanHdr, meanImg);
+        % concatenate each subject to the 4th dimension
+        z = cat(4, z, img);
 
+        %     % load the average ratio
+        %     hdrRatio = spm_vol(ratioFileFolder{iSub});
+        %     imgRatio = spm_read_vols(hdrRatio);
+        %
+        %     fprintf('Loading of Map %.0f finished. \n', iSub);
+        %
+        %     % concatenate each subject to the 4th dimension
+        %     zratio = cat(4, zratio, imgRatio);
 
-% adjusted mean map
-% The averaged z-scores are no longer from a standard normal distribution. 
-% Instead, they have a standard deviation of 1??n (n = numSubjects).
-adjustMeanHdr = meanHdr;
-newFileName = [maskType, '_AdjustAvgZTarget_subNb-', num2str(numel(opt.subjects)), '.nii'];
-adjustMeanHdr.fname = spm_file(adjustMeanHdr.fname, 'filename', newFileName);
+        % increase the counter
+        iSub = iSub + 1;
+    end
 
-% save result as .nii file
-spm_write_vol(adjustMeanHdr, adjustMeanImg);
+    %% Mean Accuracy
+    % calcuate mean accuracy maps
+    % Calculate mean of each voxel across subjects (4th dimension)
+    means = [];
+    means = mean(z, 4);
+    % meansRatio = mean(zratio, 4);
 
+    adjustMeanImg = means ./ (sqrt(numel(opt.subjects)));
+    meanImg = means;
+    % meanRatioImg = meansRatio;
 
-% % save ratio
-% meanRatioHdr = meanHdr;
-% newFileName = [maskType, '_AvgRatio_subNb-', num2str(numel(opt.subjects)), '.nii'];
-% meanRatioHdr.fname = spm_file(meanRatioHdr.fname, 'filename', newFileName);
-% 
-% % save result as .nii file
-% spm_write_vol(meanRatioHdr, meanRatioImg);
+    meanHdr = hdr;
+
+    newFolderToSave = fullfile(destinationDir, folder);
+    if ~exist(newFolderToSave, 'dir')
+        mkdir(newFolderToSave);
+    end
+
+    newFileName = [maskType, '_AvgZTarget_subNb-', num2str(numel(opt.subjects)), '.nii'];
+
+    meanHdr.fname = spm_file(meanHdr.fname, 'path', newFolderToSave);
+    meanHdr.fname = spm_file(meanHdr.fname, 'filename', newFileName);
+
+    % save result as .nii file
+    spm_write_vol(meanHdr, meanImg);
+
+    % adjusted mean map
+    % The averaged z-scores are no longer from a standard normal distribution.
+    % Instead, they have a standard deviation of 1??n (n = numSubjects).
+    adjustMeanHdr = meanHdr;
+    newFileName = [maskType, '_AdjustAvgZTarget_subNb-', num2str(numel(opt.subjects)), '.nii'];
+    adjustMeanHdr.fname = spm_file(adjustMeanHdr.fname, 'filename', newFileName);
+
+    % save result as .nii file
+    spm_write_vol(adjustMeanHdr, adjustMeanImg);
+
+    % % save ratio
+    % meanRatioHdr = meanHdr;
+    % newFileName = [maskType, '_AvgRatio_subNb-', num2str(numel(opt.subjects)), '.nii'];
+    % meanRatioHdr.fname = spm_file(meanRatioHdr.fname, 'filename', newFileName);
+    %
+    % % save result as .nii file
+    % spm_write_vol(meanRatioHdr, meanRatioImg);
 
 end
