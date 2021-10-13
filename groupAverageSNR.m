@@ -30,39 +30,37 @@ function opt = groupAverageSNR(opt)
     % below is same resolution as the functional images
     maskType = opt.maskType;
 
-%% let's start
-for iSub = 1:numel(opt.subjects)
-    
-    %get subject label
-    subLabel = opt.subjects{iSub};
-    
-    % input directory
-    inputDir = createOutputDirectory(opt, subLabel);
-    [~,folder] = fileparts(inputDir);
-    
-    % input midfile name
-    opt = getSpecificBoldFiles(opt, subLabel);
-    [~, boldFileName, ~] = fileparts(opt.allFiles{1});
-    boldFileName = regexprep(boldFileName, 'run-(\d*)_', '');
-    
-    
-    
-% if strcmpi(opt.taskName, 'RhythmBlock') %% && iSub < 12
-%     
-%     % get Target nii files
-%     avgZFileName = ['AvgZTarget_', boldFileName, '.nii'];
-%     
-%     % get ratio target
-%     ratioFileName = ['AvgRatioTarget_', boldFileName, '.nii'];
-% else
-    
-    % get Target nii files
-    avgZFileName = [maskType, '_AvgZTarget_', boldFileName, '.nii'];
+    %% let's start
+    for iSub = 1:numel(opt.subjects)
 
-    % get ratio target
-    ratioFileName = [maskType, 'AvgRatioTarget_', boldFileName, '.nii'];
-    
-% end
+        % get subject label
+        subLabel = opt.subjects{iSub};
+
+        % input directory
+        inputDir = createOutputDirectory(opt, subLabel);
+        [~, folder] = fileparts(inputDir);
+
+        % input midfile name
+        opt = getSpecificBoldFiles(opt, subLabel);
+        [~, boldFileName, ~] = fileparts(opt.allFiles{1});
+        boldFileName = regexprep(boldFileName, 'run-(\d*)_', '');
+
+        % if strcmpi(opt.taskName, 'RhythmBlock') %% && iSub < 12
+        %
+        %     % get Target nii files
+        %     avgZFileName = ['AvgZTarget_', boldFileName, '.nii'];
+        %
+        %     % get ratio target
+        %     ratioFileName = ['AvgRatioTarget_', boldFileName, '.nii'];
+        % else
+
+        % get Target nii files
+        avgZFileName = [maskType, '_AvgZTarget_', boldFileName, '.nii'];
+
+        % get ratio target
+        ratioFileName = [maskType, 'AvgRatioTarget_', boldFileName, '.nii'];
+
+        % end
 
         % input directory
         inputDir = createOutputDirectory(opt, subLabel);
