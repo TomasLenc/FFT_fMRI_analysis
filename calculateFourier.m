@@ -74,28 +74,28 @@ function [targetSNR, cfg, FT] = calculateFourier(X, Xraw, cfg)
     % It assums that in the experiment, stimulus onset is at 0 phase
     TargetPhaseP = targetPhase(targetPhase > 0); % positive phase values
 
-    while 1
-        [n, x] = hist(TargetPhaseP(targetSNR(targetPhase > 0) > thresh), ...
-                      histBin);
-        xcenter = x(n == max(n));
-        if length(xcenter) > 1
-            histBin = histBin + 1;
-        else
-            break
-        end
-    end
-
-    % 5.2 assign the peak phase ? pi/2 to be 1 and the others to be -1
-    phaseDiff = abs(targetPhase - xcenter);
-    phaseIndex = zeros(size(phaseDiff));
-    phaseIndex(phaseDiff <= (pi / 2)) = 1;
-    phaseIndex(phaseDiff > (pi / 2)) = -1;
-
-    % 5.3 apply sign to target SNR
-    targetSNRsigned = targetSNR .* phaseIndex;
-
-    % unused parameters for now
-    cfg.targetPhase = targetPhase;
-    cfg.targetSNRsigned = targetSNRsigned;
+%     while 1
+%         [n, x] = hist(TargetPhaseP(targetSNR(targetPhase > 0) > thresh), ...
+%                       histBin);
+%         xcenter = x(n == max(n));
+%         if length(xcenter) > 1
+%             histBin = histBin + 1;
+%         else
+%             break
+%         end
+%     end
+% 
+%     % 5.2 assign the peak phase ? pi/2 to be 1 and the others to be -1
+%     phaseDiff = abs(targetPhase - xcenter);
+%     phaseIndex = zeros(size(phaseDiff));
+%     phaseIndex(phaseDiff <= (pi / 2)) = 1;
+%     phaseIndex(phaseDiff > (pi / 2)) = -1;
+% 
+%     % 5.3 apply sign to target SNR
+%     targetSNRsigned = targetSNR .* phaseIndex;
+% 
+%     % unused parameters for now
+%     cfg.targetPhase = targetPhase;
+%     cfg.targetSNRsigned = targetSNRsigned;
     cfg.tSNR = tSNR;
     %
