@@ -22,7 +22,7 @@ function [maskFile, maskLabel] = getMaskFile(opt)
         subLabel = opt.subjects{iSub};
 
         % freesurfer or neurosynth ROIs?
-        if strcmp(maskType, 'freesurfer') && strcmp(opt.space, 'individual')
+        if strcmp(maskType, 'freesurfer') || strcmp(maskType, 'hmat')
 
             % check which ROI folder
             maskPath = fulllfile(opt.roiDir, ...
