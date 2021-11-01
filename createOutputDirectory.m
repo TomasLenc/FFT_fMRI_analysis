@@ -4,9 +4,6 @@ function destinationDir = createOutputDirectory(opt, subLabel)
     % sets a destination directory for FFT analysis results
 
     maskType = 'func';
-    if opt.anatMask
-        maskType = 'anat';
-    end
 
     fftDir = fullfile(opt.derivativesDir, '..', 'rnb_fft');
 
