@@ -37,7 +37,7 @@ else
         for iSub = 1:numel(opt.subjects)
             
             % read subject ID
-            subFolder = opt.subjects{iSub};
+            subFolder = ['sub-', opt.subjects{iSub}];
             
             for iMask = 1:numel(maskName)
                 maskFile{iSub, iMask}  = fullfile(opt.maskPath, ...
