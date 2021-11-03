@@ -21,7 +21,7 @@ if strcmp(maskType, 'whole-brain')
     
     maskFile = bidsWholeBrainFuncMask(opt);
     
-    opt.maskLabel = maskType;
+    opt.maskLabel = {maskType};
     
 else
     
