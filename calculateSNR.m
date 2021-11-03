@@ -32,7 +32,7 @@ function opt = calculateSNR(opt)
         subLabel = opt.subjects{iSub};
         
         % setup output directory
-        destinationDir = createOutputDirectory(opt, subLabel);
+        destinationDir = getFFTdir(opt, subLabel);
 
             
       for iMask = 1:size(opt.maskFile,2)

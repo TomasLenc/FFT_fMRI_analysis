@@ -37,7 +37,7 @@ function opt = groupAverageSNR(opt)
         subLabel = opt.subjects{iSub};
 
         % input directory
-        inputDir = createOutputDirectory(opt, subLabel);
+        inputDir = getFFTdir(opt, subLabel);
         [~, folder] = fileparts(inputDir);
 
         % input midfile name
@@ -63,7 +63,7 @@ function opt = groupAverageSNR(opt)
         % end
 
         % input directory
-        inputDir = createOutputDirectory(opt, subLabel);
+        inputDir = getFFTdir(opt, subLabel);
         [~, folder] = fileparts(inputDir);
 
         % input midfile name
