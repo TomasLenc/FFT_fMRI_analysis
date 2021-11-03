@@ -1,32 +1,32 @@
 % (C) Copyright 2020 RnB FFT-analysis developers
 
-function destinationDir = createOutputDirectory(opt, subLabel)
+function fftDir = getFFTdir(opt, subLabel)
     % sets a destination directory for FFT analysis results
 
     maskType = 'func';
 
-    fftDir = fullfile(opt.derivativesDir, '..', 'rnb_fft');
+    mainDir = fullfile(opt.derivativesDir, '..', 'rnb_fft');
 
     % in the future omit hardcoding of subject - loop through instead
     subject = ['sub-', subLabel];
     session = 'ses-001';
-    subjectFftDir = ['space-', opt.space, ...
+    fftDirName = ['space-', opt.space, ...
                      '_FWHM-', num2str(opt.FWHM), ...
                      '_mask-', maskType, ...
                      '_step-', num2str(opt.nStepsPerPeriod)];
 
     % output the results
-    destinationDir =  fullfile(fftDir, subject, session, subjectFftDir);
+    fftDir =  fullfile(mainDir, subject, session, fftDirName);
 
     % create subject folder witn subfolders if doesn't exist
 
-    if ~exist(destinationDir, 'dir')
+    if ~exist(fftDir, 'dir')
 
-        dirsToMake = {subject, session, subjectFftDir};
+        dirsToMake = {subject, session, fftDirName};
 
         for idir = 1:length(dirsToMake)
 
-            Thisdir = fullfile(fftDir, dirsToMake{1:idir});
+            Thisdir = fullfile(mainDir, dirsToMake{1:idir});
 
             if ~exist(Thisdir)
                 mkdir(Thisdir);
