@@ -83,6 +83,10 @@ function [targetSNR, cfg, FT] = calculateFourier(X, Xraw, cfg)
 %         else
 %             break
 %         end
+%         if histBin > length(TargetPhaseP)
+%             warning('phase estimation did not converge')
+%             break
+%         end
 %     end
 % 
 %     % 5.2 assign the peak phase ? pi/2 to be 1 and the others to be -1
