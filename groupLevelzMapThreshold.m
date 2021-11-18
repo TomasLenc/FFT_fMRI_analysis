@@ -10,6 +10,8 @@ subNb = length(opt.subjects);
 %cut off threshold for pvalue
 threshold =  round(abs(norminv(pvalue)),2);
         
+% dummy call
+subLabel = opt.subjects{1};
 
         % setup output directory
         fftDir = getFFTdir(opt, subLabel);
