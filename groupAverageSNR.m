@@ -13,7 +13,7 @@ function opt = groupAverageSNR(opt)
     % Block step 4 use [1,3]
     % Block step 2 use [1,2]
     % FT step 4 use [1,2]
-    if strcmpi(opt.taskName, 'RhythmBlock')
+    if strcmpi(opt.taskName, 'RhythmBlock') || strcmpi(opt.taskName, 'Nonmetric')
         if opt.nStepsPerPeriod == 2
             opt.whichHarmonics = [1, 2];
         elseif opt.nStepsPerPeriod == 4
@@ -22,7 +22,7 @@ function opt = groupAverageSNR(opt)
     end
 
     % setup output directory
-    fftDir = fullfile(opt.derivativesDir, '..', 'rnb_fft');
+    fftDir = fullfile(opt.derivativesDir, '..', 'nonmetric_derivatives_rnb_fft');
     destinationDir = fullfile(fftDir, 'group');
 
     % get mask image
@@ -58,8 +58,8 @@ function opt = groupAverageSNR(opt)
         avgZFileName = [maskType, '_AvgZTarget_', boldFileName, '.nii'];
 
         % get ratio target
-        ratioFileName = [maskType, 'AvgRatioTarget_', boldFileName, '.nii'];
-
+%         ratioFileName = [maskType, 'AvgRatioTarget_', boldFileName, '.nii']; % sub013 - sub023
+        ratioFileName = [maskType, '_AvgRatioTarget_', boldFileName, '.nii']; % sub024 - sub033
         % end
 
         % input directory
@@ -78,13 +78,13 @@ function opt = groupAverageSNR(opt)
 
             % get ratio target
             ratioFileName = ['AvgRatioTarget_', boldFileName, '.nii'];
-        else
-
-            % get Target nii files
-            avgZFileName = [maskType, '_AvgZTarget_', boldFileName, '.nii'];
-
-            % get ratio target
-            ratioFileName = [maskType, 'AvgRatioTarget_', boldFileName, '.nii'];
+%         else
+% 
+%             % get Target nii files
+%             avgZFileName = [maskType, '_AvgZTarget_', boldFileName, '.nii'];
+% 
+%             % get ratio target
+%             ratioFileName = [maskType, 'AvgRatioTarget_', boldFileName, '.nii'];
 
         end
 
@@ -157,7 +157,10 @@ function opt = groupAverageSNR(opt)
         mkdir(newFolderToSave);
     end
 
-    newFileName = [maskType, '_AvgZTarget_subNb-', num2str(numel(opt.subjects)), '.nii'];
+    newFileName = [maskType, ...
+                  '_AvgZTarget_subNb-',  ...
+                  opt.subjects{1}, '-', opt.subjects{end}, ...
+                  '_subNb-', num2str(numel(opt.subjects)), '.nii'];
 
     meanHdr.fname = spm_file(meanHdr.fname, 'path', newFolderToSave);
     meanHdr.fname = spm_file(meanHdr.fname, 'filename', newFileName);
@@ -169,7 +172,11 @@ function opt = groupAverageSNR(opt)
     % The averaged z-scores are no longer from a standard normal distribution.
     % Instead, they have a standard deviation of 1??n (n = numSubjects).
     adjustMeanHdr = meanHdr;
-    newFileName = [maskType, '_AdjustAvgZTarget_subNb-', num2str(numel(opt.subjects)), '.nii'];
+    newFileName = [maskType, ...
+                  '_AdjustAvgZTarget_subjects', ...
+                  opt.subjects{1}, '-', opt.subjects{end}, ...
+                  '_subNb-', num2str(numel(opt.subjects)), ...
+                  '.nii'];
     adjustMeanHdr.fname = spm_file(adjustMeanHdr.fname, 'filename', newFileName);
 
     % save result as .nii file
