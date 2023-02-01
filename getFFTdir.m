@@ -5,7 +5,7 @@ function fftDir = getFFTdir(opt, subLabel)
 
     maskType = 'func';
 
-    mainDir = fullfile(opt.derivativesDir, '..', 'rnb_fft');
+    mainDir = fullfile(opt.derivativesDir, '..', 'nonmetric_derivatives_rnb_fft');
 
     % in the future omit hardcoding of subject - loop through instead
     subject = ['sub-', subLabel];
