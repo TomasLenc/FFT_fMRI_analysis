@@ -18,7 +18,7 @@ function opt = calculateSNR(opt)
     % Block step 4 use [1,3]
     % Block step 2 use [1,2]
     % FT step 4 use [1,2]
-    if strcmpi(opt.taskName, 'RhythmBlock') && strcmpi(opt.taskName, 'Nonmetric')
+    if strcmpi(opt.taskName, 'RhythmBlock') || strcmpi(opt.taskName, 'Nonmetric')
         if opt.nStepsPerPeriod == 2
             opt.whichHarmonics = [1, 2];
         elseif opt.nStepsPerPeriod == 4
@@ -32,21 +32,24 @@ function opt = calculateSNR(opt)
         subLabel = opt.subjects{iSub};
         
         % setup output directory
-        destinationDir = createOutputDirectory(opt, subLabel);
+        destinationDir = getFFTdir(opt, subLabel);
 
+            
+      for iMask = 1:size(opt.maskFile,2)
+        
         % get mask image
         % use a predefined mask, only calculate voxels within the mask
         % below is same resolution as the functional images
         maskType = opt.maskType;
+        if numel(opt.maskLabel) > 1
+            maskType = [opt.maskType, '-', opt.maskLabel{iMask}];
+        end
         
-        maskFileName = opt.funcMask{iSub};
+        %get the mask name and path
+        maskFileName = opt.maskFile{iSub, iMask};
         [maskPath, maskName] = fileparts(maskFileName);
         fprintf('Mask Path: \n %s\n\n', maskPath);
         fprintf('Mask Name: \n %s\n\n', maskName);
-
-        if opt.anatMask == 1
-            maskFileName = opt.anatMaskFileName;
-        end
 
         % load the mask
         maskHdr = spm_vol(maskFileName);
@@ -58,7 +61,7 @@ function opt = calculateSNR(opt)
 
         % add or count tot run number
         allRunFiles = opt.allFiles;
-        disp(allRunFiles)
+        disp(allRunFiles);
 
         %% setup parameters for FFT analysis
         % mri.repetition time(TR)
@@ -184,7 +187,7 @@ function opt = calculateSNR(opt)
             % would have zeros so we are getting rid off them below
 
             % save mask in the same size as boldImg and reallocate the matrix
-            if iRun == 1
+            if iRun == 1 && strcmp(maskType, 'whole-brain')
 
                 % Getting rid off zeros
                 zeroMask = all(boldImg == 0, 1);
@@ -238,7 +241,7 @@ function opt = calculateSNR(opt)
             if opt.saveEachRun == 1
 
                 fprintf('Saving each run output... \n');
-                
+
                 % run FFT
                 [targetZ, cfg, ~] = calculateFourier(boldDetrend, boldResampled, cfg);
 
@@ -248,144 +251,148 @@ function opt = calculateSNR(opt)
                 %     tSNR = cfg.tSNR;
                 %     %
 
-                newFileName = [maskType,'_SNR_', boldFileName, '.nii'];
+                newFileName = [maskType, '_SNR_', boldFileName, '.nii'];
                 writeMap(targetZ, maskHdr, maskImg, newFileName, destinationDir);
 
             end
         end
 
-        %% Calculate SNR for the averaged time course of the all runs
-        fprintf('Calculating average... \n');
 
-        % rename the file name for saving
-        boldFileName = regexprep(boldFileName, 'run-(\d*)_', '');
-
-        % average runs in the time domain
-        avgBold = mean(allRunsBoldDT, 3);
-        avgRawBold = mean(allRunsBoldRaw, 3);
-
-        %% run FFT on average bold
-        % ----------------------------------------------------------------
-        % Zscore at target frequency. 
-        % (1) calculate magnitude specta using FFT
-        % (2) exctract magnitude at the target frequency bin -> this is
-        % "signal"
-        % (3) extract magnitudes at surrounding frequency bins -> this is noise
-        % (4) calculate zscore as (signal-mean(noise)) / std(noise)
-        % do this for each voxel and return in array AvgZTarget
-        [AvgZTarget, cfg, FT] = calculateFourier(avgBold, avgRawBold, cfg);
-        
-        % save map as nii
-        newFileName = [maskType, '_AvgZTarget_', boldFileName, '.nii'];
-        zmapImg = writeMap(AvgZTarget, maskHdr, maskImg, newFileName, destinationDir);
-
-        % save FT as mat file
-        save(fullfile(destinationDir,[newFileName(1:end-4),'_FT']),'FT');
-        
-        %% subtraction SNR 
-        % baseline-correct magnitude spectra (subtracting surrounding bins)
-        
-        % convert from complex FFT output to magnitudes 
-        mX = abs(FT); 
-        
-        % define the baseline correction function (we will simply subtract the
-        % mean magnitude at surrounding bins from the signal, i.e. center bin)
-        blfun = @(signal, noise) signal - noise;
-        % go over frequency bins, and apply the function to each bin in the
-        % spectra
-        mXbl = baselineCorrect(mX, cfg, 'fun', blfun);
-        
-        % plot best voxels
-        voxelNbToPlot = 10;
-        coordTargetFreq = getVoxelCoordinate(boldHdr, zmapImg, maskImg, voxelNbToPlot);
-        % for a clear representation, does it make sense to use fixed scale
-        % across voxels?
-        f = plotmXBestVox(freq, mXbl, coordTargetFreq, cfg.idxHarmonics);
-
-        % save figure
-        newFileName = [maskType, 'AvgZTarget-bestVox_', boldFileName, '.fig'];
-        saveas(f, fullfile(destinationDir, newFileName));
-        close(f);
-
-        % ----------------------------------------------------------------
-        % Zscore at target frequency and harmonics. We will first pool
-        % (average) magnitudes across the different harmonics. To this end, we
-        % will cut segments around the target frequency and each harmonic from
-        % the long spectra. We will average these segments and from this
-        % avergae, we will extract the zscore (signal vs. noise). 
-        
-        % cut out segments of frequency bins around each frequency of interest
-        % (target and its harmonics) and average these segments 
-        mXavgHarmonics = getAvgHarmonics(mX, cfg.idxHarmonics, cfg.binSize);
-
-        % define indices of positions in the averaged segment that represent
-        % noise (note that the center position is the frequency bin where we
-        % expect signal, and noise is on either side of this bin) 
-        noiseFs = [(cfg.binSize + 1 - cfg.binSize / 2 - cfg.gap) ...
-                   :(cfg.binSize + 1 - 1 - cfg.gap) ...
-                   (cfg.binSize + 1 + 1 + cfg.gap) ...
-                   :(cfg.binSize + 1 + cfg.binSize / 2 + cfg.gap)];
-
-        % extract magnitudes of signal and noise from the average segment 
-        AmpNoise = mXavgHarmonics(noiseFs, :);
-        NoiseMean = mean(AmpNoise, 1);
-        NoiseSD = std(AmpNoise, 0, 1);
-        % get zscore 
-        targetHarmonicsZ = (mXavgHarmonics(cfg.binSize + 1, :) - NoiseMean) ./ NoiseSD;
-
-        % save map as nii
-        newFileName = [maskType, 'AvgZHarmonics_', boldFileName, '.nii'];
-        zHarmonicsImg = writeMap(targetHarmonicsZ, maskHdr, maskImg, newFileName, destinationDir);
-
-        coordHarmonics = getVoxelCoordinate(boldHdr, zHarmonicsImg, maskImg, voxelNbToPlot);
-        
-        % plot averge segment from the spectra for best voxels
-        % for a clear representation, does it make sense to use fixed scale
-        % across voxels?
-        f = plotAvgHarmBestVox(mXavgHarmonics, coordHarmonics); 
-        
-        % save figure
-        newFileName = [maskType, 'AvgZHarmonics-bestVoxMean_', boldFileName, '.fig'];
-        saveas(f, fullfile(destinationDir, newFileName));
-        close(f);
-
-        % plot whole spectra for best voxels and save figure
-        % the coordinate of best harmonics differ from coord of highest SNR
-        % on target freuency - for Fig1 differs from Fig3
-        f = plotmXBestVox(freq, mXbl, coordHarmonics, cfg.idxHarmonics);
-        newFileName = [maskType, 'AvgZHarmonics-bestVox_', boldFileName, '.fig'];
-        saveas(f, fullfile(destinationDir, newFileName));
-        close(f);
-
-        %% ratio SNR 
-        % baseline-correct magnitude spectra (taking ration with magnitudes
-        % at surrounding bins)
-        
-        % define baseline correction function (we will simply take a ratio
-        % between the mean magnitude the signal frequency bin, and mean magnitude
-        % at surrounding bins (from both sides) 
-        blfun = @(x, y) x ./ y;
-        % go over frequency bins, and apply the function to each bin in the
-        % spectra
-        mXblRatio = baselineCorrect(abs(FT), cfg, 'fun', blfun);
-        
-        % extract the value at target frequency (separately for each voxel) 
-        targetRatio = mXblRatio(cfg.targetFrequency, :);
-
-        % save map as nii
-        newFileName = [maskType, 'AvgRatioTarget_', boldFileName, '.nii'];
-        targetRatioImg = writeMap(targetRatio, maskHdr, maskImg, newFileName, destinationDir);
-
-        % plot best voxels
-        coordRatio = getVoxelCoordinate(boldHdr, targetRatioImg, maskImg, voxelNbToPlot);        
-        
-        f = plotmXBestVox(freq, mXblRatio, coordRatio, cfg.idxHarmonics, 'ratio');
-        
-        % save figure
-        newFileName = [maskType, 'AvgRatioTarget-bestVox_', boldFileName, '.fig'];
-        saveas(f, fullfile(destinationDir, newFileName));
-        close(f);
-
+        if opt.calculateAverage == 1
+            %% Calculate SNR for the averaged time course of the all runs
+            fprintf('Calculating average... \n');
+            
+            % rename the file name for saving
+            boldFileName = regexprep(boldFileName, 'run-(\d*)_', '');
+            
+            % average runs in the time domain
+            avgBold = mean(allRunsBoldDT, 3);
+            avgRawBold = mean(allRunsBoldRaw, 3);
+            
+            %% run FFT on average bold
+            % ----------------------------------------------------------------
+            % Zscore at target frequency.
+            % (1) calculate magnitude specta using FFT
+            % (2) exctract magnitude at the target frequency bin -> this is
+            % "signal"
+            % (3) extract magnitudes at surrounding frequency bins -> this is noise
+            % (4) calculate zscore as (signal-mean(noise)) / std(noise)
+            % do this for each voxel and return in array AvgZTarget
+            [AvgZTarget, cfg, FT] = calculateFourier(avgBold, avgRawBold, cfg);
+            
+            % save map as nii
+            newFileName = [maskType, '_AvgZTarget_', boldFileName, '.nii'];
+            zmapImg = writeMap(AvgZTarget, maskHdr, maskImg, newFileName, destinationDir);
+            
+            % save FT as mat file
+            save(fullfile(destinationDir, [newFileName(1:end - 4), '_FT']), 'FT');
+            
+            %% subtraction SNR
+            % baseline-correct magnitude spectra (subtracting surrounding bins)
+            
+            % convert from complex FFT output to magnitudes
+            mX = abs(FT);
+            
+            % define the baseline correction function (we will simply subtract the
+            % mean magnitude at surrounding bins from the signal, i.e. center bin)
+            blfun = @(signal, noise) signal - noise;
+            % go over frequency bins, and apply the function to each bin in the
+            % spectra
+            mXbl = baselineCorrect(mX, cfg, 'fun', blfun);
+            
+            % plot best voxels
+            voxelNbToPlot = 10;
+            coordTargetFreq = getVoxelCoordinate(boldHdr, zmapImg, maskImg, voxelNbToPlot);
+            % for a clear representation, does it make sense to use fixed scale
+            % across voxels?
+            f = plotmXBestVox(freq, mXbl, coordTargetFreq, cfg.idxHarmonics);
+            
+            % save figure
+            newFileName = [maskType, '_AvgZTarget-bestVox_', boldFileName, '.fig'];
+            saveas(f, fullfile(destinationDir, newFileName));
+            close(f);
+            
+            % ----------------------------------------------------------------
+            % Zscore at target frequency and harmonics. We will first pool
+            % (average) magnitudes across the different harmonics. To this end, we
+            % will cut segments around the target frequency and each harmonic from
+            % the long spectra. We will average these segments and from this
+            % avergae, we will extract the zscore (signal vs. noise).
+            
+            % cut out segments of frequency bins around each frequency of interest
+            % (target and its harmonics) and average these segments
+            mXavgHarmonics = getAvgHarmonics(mX, cfg.idxHarmonics, cfg.binSize);
+            
+            % define indices of positions in the averaged segment that represent
+            % noise (note that the center position is the frequency bin where we
+            % expect signal, and noise is on either side of this bin)
+            noiseFs = [(cfg.binSize + 1 - cfg.binSize / 2 - cfg.gap) ...
+                :(cfg.binSize + 1 - 1 - cfg.gap) ...
+                (cfg.binSize + 1 + 1 + cfg.gap) ...
+                :(cfg.binSize + 1 + cfg.binSize / 2 + cfg.gap)];
+            
+            % extract magnitudes of signal and noise from the average segment
+            AmpNoise = mXavgHarmonics(noiseFs, :);
+            NoiseMean = mean(AmpNoise, 1);
+            NoiseSD = std(AmpNoise, 0, 1);
+            % get zscore
+            targetHarmonicsZ = (mXavgHarmonics(cfg.binSize + 1, :) - NoiseMean) ./ NoiseSD;
+            
+            % save map as nii
+            newFileName = [maskType, '_AvgZHarmonics_', boldFileName, '.nii'];
+            zHarmonicsImg = writeMap(targetHarmonicsZ, maskHdr, maskImg, newFileName, destinationDir);
+            
+            coordHarmonics = getVoxelCoordinate(boldHdr, zHarmonicsImg, maskImg, voxelNbToPlot);
+            
+            % plot averge segment from the spectra for best voxels
+            % for a clear representation, does it make sense to use fixed scale
+            % across voxels?
+            f = plotAvgHarmBestVox(mXavgHarmonics, coordHarmonics);
+            
+            % save figure
+            newFileName = [maskType, '_AvgZHarmonics-bestVoxMean_', boldFileName, '.fig'];
+            saveas(f, fullfile(destinationDir, newFileName));
+            close(f);
+            
+            % plot whole spectra for best voxels and save figure
+            % the coordinate of best harmonics differ from coord of highest SNR
+            % on target freuency - for Fig1 differs from Fig3
+            f = plotmXBestVox(freq, mXbl, coordHarmonics, cfg.idxHarmonics);
+            newFileName = [maskType, '_AvgZHarmonics-bestVox_', boldFileName, '.fig'];
+            saveas(f, fullfile(destinationDir, newFileName));
+            close(f);
+            
+            %% ratio SNR
+            % baseline-correct magnitude spectra (taking ration with magnitudes
+            % at surrounding bins)
+            
+            % define baseline correction function (we will simply take a ratio
+            % between the mean magnitude the signal frequency bin, and mean magnitude
+            % at surrounding bins (from both sides)
+            blfun = @(x, y) x ./ y;
+            % go over frequency bins, and apply the function to each bin in the
+            % spectra
+            mXblRatio = baselineCorrect(abs(FT), cfg, 'fun', blfun);
+            
+            % extract the value at target frequency (separately for each voxel)
+            targetRatio = mXblRatio(cfg.targetFrequency, :);
+            
+            % save map as nii
+            newFileName = [maskType, '_AvgRatioTarget_', boldFileName, '.nii'];
+            targetRatioImg = writeMap(targetRatio, maskHdr, maskImg, newFileName, destinationDir);
+            
+            % plot best voxels
+            coordRatio = getVoxelCoordinate(boldHdr, targetRatioImg, maskImg, voxelNbToPlot);
+            
+            f = plotmXBestVox(freq, mXblRatio, coordRatio, cfg.idxHarmonics, 'ratio');
+            
+            % save figure
+            newFileName = [maskType, '_AvgRatioTarget-bestVox_', boldFileName, '.fig'];
+            saveas(f, fullfile(destinationDir, newFileName));
+            close(f);
+                        
+        end
+      end
     end
 end
 
@@ -403,8 +410,10 @@ function zmapImg = writeMap(data2write, maskHdr, maskImg, newFileName, destinati
     % assign z-scores from 1-D to their correcponding 3-D location
     zmapImg(find(maskImg > 0)) = data2write; %#ok<FNDSB>
 
-    % save result as .nii file
-    spm_write_vol(zmapHdr, zmapImg);
+    if contains(newFileName, '_AvgZTarget_')
+        % save result as .nii file
+        spm_write_vol(zmapHdr, zmapImg);
+    end
 
 end
 
@@ -434,22 +443,3 @@ function removeMaskZeros(maskFileName, boldFile)
 
 end
 
-% function writeMap(data2write, maskFileName, newFileName, destinationDir)
-%
-%
-%     % write map of extracted values
-%     mask_new = load_untouch_nii(maskFileName);
-%
-%     zmap3Dmask = zeros(size(mask_new.img));
-%     zmap3Dmask(find(mask_new.img > 0)) = data2write;
-%
-%     new_nii = make_nii(zmap3Dmask);
-%     new_nii.hdr = mask_new.hdr;
-%
-%     dims = size(mask_new.img);
-%     new_nii.hdr.dime.dim(2:5) = [dims(1) dims(2) dims(3) 1];
-%
-%
-%     save_nii(new_nii, fullfile(destinationDir,newFileName));
-%
-% end
